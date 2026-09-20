@@ -2,83 +2,98 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(CanvasGroup))]
 public class InventoryDrawerController : MonoBehaviour
 {
-    [Header("Panel Reference")]
-    [SerializeField] private RectTransform drawerRect;
-    [SerializeField] private Button closeBtn;
-
     [Header("Animation Settings")]
-    [SerializeField] private float targetOpenY = 0f;
-    [SerializeField] private float targetClosedY = -700f;
-    [SerializeField] private float slideSpeed = 12f;
+    [SerializeField] private float fadeDuration = 0.2f;
 
-    [Header("Debug Status")]
-    [SerializeField] private bool isOpen = false;
+    [Header("Close Button")]
+    [SerializeField] private Button closeButton;
 
-    private Coroutine slideCoroutine;
+    private CanvasGroup canvasGroup;
+    private Coroutine activeFadeRoutine;
+    private bool isOpen = false;
 
     private void Awake()
     {
-        if (drawerRect == null) drawerRect = GetComponent<RectTransform>();
+        SetupCanvasGroup();
 
-        if (closeBtn != null)
+        if (closeButton != null)
         {
-            closeBtn.onClick.AddListener(CloseDrawer);
-            closeBtn.gameObject.SetActive(false);
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(CloseDrawer);
         }
+    }
 
-        drawerRect.anchoredPosition = new Vector2(drawerRect.anchoredPosition.x, targetClosedY);
-        isOpen = false;
+    private void SetupCanvasGroup()
+    {
+        if (canvasGroup == null)
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+        }
     }
 
     public void ToggleDrawer()
     {
-        Debug.Log($"[Drawer] Toggle Called. Current isOpen = {isOpen}");
         if (isOpen)
+        {
             CloseDrawer();
+        }
         else
+        {
             OpenDrawer();
+        }
     }
 
     public void OpenDrawer()
     {
-        Debug.Log("[Drawer] ---> Opening Drawer");
+        // ปลุก GameObject ให้ตื่นก่อนเป็นอันดับแรก (ป้องกัน Coroutine พัง 100%)
+        gameObject.SetActive(true);
+        SetupCanvasGroup();
+
         isOpen = true;
-        if (closeBtn != null) closeBtn.gameObject.SetActive(true);
-        MoveTo(targetOpenY);
+        StartFade(1f, true);
     }
 
     public void CloseDrawer()
     {
-        Debug.Log("[Drawer] ---> Closing Drawer");
         isOpen = false;
-        if (closeBtn != null) closeBtn.gameObject.SetActive(false);
-        MoveTo(targetClosedY);
+        StartFade(0f, false);
     }
 
-    private void MoveTo(float targetY)
+    private void StartFade(float targetAlpha, bool interactable)
     {
-        if (slideCoroutine != null) StopCoroutine(slideCoroutine);
-        slideCoroutine = StartCoroutine(SlideRoutine(targetY));
+        SetupCanvasGroup();
+
+        // ป้องกัน Error กรณีสั่งปิดตอนที่ตัวมันปิดไปแล้ว
+        if (!gameObject.activeInHierarchy) return;
+
+        if (activeFadeRoutine != null) StopCoroutine(activeFadeRoutine);
+        activeFadeRoutine = StartCoroutine(FadeRoutine(targetAlpha, interactable));
     }
 
-    private IEnumerator SlideRoutine(float targetY)
+    private IEnumerator FadeRoutine(float targetAlpha, bool interactable)
     {
-        Vector2 startPos = drawerRect.anchoredPosition;
-        Vector2 targetPos = new Vector2(startPos.x, targetY);
-        float t = 0f;
+        canvasGroup.interactable = interactable;
+        canvasGroup.blocksRaycasts = interactable;
 
-        Debug.Log($"[Drawer] Moving from Y:{startPos.y} to Y:{targetY}");
+        float startAlpha = canvasGroup.alpha;
+        float timer = 0f;
 
-        while (t < 1f)
+        while (timer < fadeDuration)
         {
-            t += Time.deltaTime * slideSpeed;
-
-            drawerRect.anchoredPosition = Vector2.Lerp(startPos, targetPos, Mathf.SmoothStep(0f, 1f, t));
+            timer += Time.unscaledDeltaTime;
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, timer / fadeDuration);
             yield return null;
         }
 
-        drawerRect.anchoredPosition = targetPos;
+        canvasGroup.alpha = targetAlpha;
+
+        // ถ้าจางหายจนจบ ให้ปิดตัวเองไปเลย
+        if (!interactable)
+        {
+            gameObject.SetActive(false);
+        }
     }
 }

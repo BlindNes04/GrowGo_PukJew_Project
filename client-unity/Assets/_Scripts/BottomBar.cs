@@ -4,8 +4,6 @@ using UnityEngine.UI;
 public class BottomNavigationBar : MonoBehaviour
 {
     [Header("Navigation Button Slots")]
-    //[SerializeField] private Button homeButton;
-    //[SerializeField] private Button addFriendButton;
     [SerializeField] private Button inventoryButton;
     [SerializeField] private Button plantDexButton;
     [SerializeField] private Button plantStoreButton;
@@ -18,23 +16,11 @@ public class BottomNavigationBar : MonoBehaviour
 
     private void Awake()
     {
-        //if (homeButton != null) homeButton.onClick.AddListener(OnHomeClicked);
-        //if (addFriendButton != null) addFriendButton.onClick.AddListener(OnAddFriendClicked);
         if (inventoryButton != null) inventoryButton.onClick.AddListener(OnInventoryClicked);
         if (plantDexButton != null) plantDexButton.onClick.AddListener(OnPlantDexClicked);
         if (plantStoreButton != null) plantStoreButton.onClick.AddListener(OnPlantStoreClicked);
         if (miniGamesBtn != null) miniGamesBtn.onClick.AddListener(OnMiniGamesClicked);
     }
-
-    //public void OnHomeClicked()
-    //{
-        //Debug.Log("Home Button Clicked");
-    //}
-
-    //public void OnAddFriendClicked()
-    //{
-        //Debug.Log("Add Friend Button Clicked");
-    //}
 
     public void OnInventoryClicked()
     {
