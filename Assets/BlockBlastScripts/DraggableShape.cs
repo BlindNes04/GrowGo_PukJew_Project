@@ -29,7 +29,6 @@ public class DraggableShape : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
     }
 
-    // ฟังก์ชันปรับสีเทาเมื่อไม่มีที่ลง
     public void SetGreyOut(bool isGrey)
     {
         IsInteractable = !isGrey;
@@ -39,7 +38,6 @@ public class DraggableShape : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
             Image img = piece.GetComponent<Image>();
             if (img != null)
             {
-                // ถ้าเทา ให้ปรับความมืดลงเหลือ 0.35f
                 img.color = isGrey ? new Color(0.35f, 0.35f, 0.35f, 0.8f) : Color.white;
             }
         }

@@ -2,23 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
-
-[System.Serializable]
-public class RewardItem
-{
-    public string itemName;
-    public Sprite itemIcon;
-}
-
-[System.Serializable]
-public class ScoreRewardTier
-{
-    public string tierName;
-    public int minScore;
-    public List<RewardItem> possibleRewards;
-}
 
 public class GridManager : MonoBehaviour
 {
@@ -36,25 +20,8 @@ public class GridManager : MonoBehaviour
     public TextMeshProUGUI ScoreText;        
     public TextMeshProUGUI BestScoreText;    
 
-    [Header("Game Over Elements")]
-    public GameObject gameOverPanel;
-    public Transform frame;
-    public Transform gameOverText;
-    public Transform scoreHeader;
-    public TextMeshProUGUI finalScore;
-    public RectTransform sunburst;
-    public Image itemImg;
-    public Transform youGotText;
-    public TextMeshProUGUI itemName;
-    public Button homebutton;
-    public Button restartbutton;
-    public string homeSceneName = "MainMenu";
-
-    [Header("Reward Tiers")]
-    public List<ScoreRewardTier> rewardTiers = new List<ScoreRewardTier>();
-
-    [Header("Sunburst Settings")]
-    public float rotateSpeed = 20f;
+    [Header("Game Over Controller")]
+    [SerializeField] private GameOverController gameOverController;
 
     private bool[,] occupied = new bool[ROWS, COLS];
     private RectTransform[,] cellTransforms = new RectTransform[ROWS, COLS];
@@ -76,18 +43,6 @@ public class GridManager : MonoBehaviour
     {
         CreateBoard();
         LoadAndDisplayScores();
-
-        if (gameOverPanel != null) gameOverPanel.SetActive(false);
-        if (restartbutton != null) restartbutton.onClick.AddListener(RestartGame);
-        if (homebutton != null) homebutton.onClick.AddListener(GoToHome);
-    }
-
-    void Update()
-    {
-        if (isGameOver && sunburst != null)
-        {
-            sunburst.Rotate(0f, 0f, -rotateSpeed * Time.deltaTime);
-        }
     }
 
     void CreateBoard()
@@ -592,155 +547,23 @@ public class GridManager : MonoBehaviour
         if (isGameOver) return;
         isGameOver = true;
 
-        if (gameOverPanel != null)
+        if (currentScore > bestScore)
         {
-            gameOverPanel.SetActive(true);
-
-            if (currentScore > bestScore)
-            {
-                bestScore = currentScore;
-                PlayerPrefs.SetInt("BestScore", bestScore);
-                PlayerPrefs.Save();
-            }
-
-            if (finalScore != null) finalScore.text = currentScore.ToString();
-
-            PickRewardByScore(currentScore);
-
-            StartCoroutine(AnimateGameOverPopup());
+            bestScore = currentScore;
+            PlayerPrefs.SetInt("BestScore", bestScore);
+            PlayerPrefs.Save();
         }
+
+        StartCoroutine(GameOverRoutine());
     }
 
-    private void PickRewardByScore(int finalScoreVal)
+    private IEnumerator GameOverRoutine()
     {
-        ScoreRewardTier matchedTier = null;
+        yield return new WaitForSeconds(0.3f);
 
-        for (int i = rewardTiers.Count - 1; i >= 0; i--)
+        if (gameOverController != null)
         {
-            if (finalScoreVal >= rewardTiers[i].minScore)
-            {
-                matchedTier = rewardTiers[i];
-                break;
-            }
-        }
-
-        if (matchedTier == null && rewardTiers.Count > 0)
-        {
-            matchedTier = rewardTiers[0];
-        }
-
-        if (matchedTier != null && matchedTier.possibleRewards != null && matchedTier.possibleRewards.Count > 0)
-        {
-            int randIndex = Random.Range(0, matchedTier.possibleRewards.Count);
-            RewardItem selectedReward = matchedTier.possibleRewards[randIndex];
-
-            if (itemImg != null && selectedReward.itemIcon != null)
-            {
-                itemImg.sprite = selectedReward.itemIcon;
-            }
-
-            if (itemName != null)
-            {
-                itemName.text = selectedReward.itemName;
-            }
-        }
-    }
-
-    private IEnumerator AnimateGameOverPopup()
-    {
-        SetElementScale(frame, 0f);
-        SetElementScale(gameOverText, 0f);
-        SetElementScale(scoreHeader, 0f);
-        if (finalScore != null) SetElementScale(finalScore.transform, 0f);
-        if (sunburst != null) SetElementScale(sunburst.transform, 0f);
-        if (itemImg != null) SetElementScale(itemImg.transform, 0f);
-        SetElementScale(youGotText, 0f);
-        if (itemName != null) SetElementScale(itemName.transform, 0f);
-        if (homebutton != null) SetElementScale(homebutton.transform, 0f);
-        if (restartbutton != null) SetElementScale(restartbutton.transform, 0f);
-
-        yield return new WaitForSeconds(0.15f);
-
-        if (frame != null)
-        {
-            yield return StartCoroutine(PopInElement(frame, 0.65f, 1.15f));
-        }
-
-        if (gameOverText != null)
-        {
-            yield return StartCoroutine(PopInElement(gameOverText, 0.35f, 1.2f));
-        }
-
-        if (scoreHeader != null) StartCoroutine(PopInElement(scoreHeader, 0.35f, 1.2f));
-        if (finalScore != null)
-        {
-            yield return StartCoroutine(PopInElement(finalScore.transform, 0.35f, 1.25f));
-            yield return new WaitForSeconds(0.05f);
-        }
-
-        if (sunburst != null) StartCoroutine(PopInElement(sunburst.transform, 0.45f, 1.3f));
-        if (itemImg != null)
-        {
-            yield return StartCoroutine(PopInElement(itemImg.transform, 0.45f, 1.3f));
-            yield return new WaitForSeconds(0.05f);
-        }
-
-        if (youGotText != null) StartCoroutine(PopInElement(youGotText, 0.3f, 1.2f));
-        if (itemName != null)
-        {
-            yield return StartCoroutine(PopInElement(itemName.transform, 0.3f, 1.2f));
-            yield return new WaitForSeconds(0.08f);
-        }
-
-        if (homebutton != null) StartCoroutine(PopInElement(homebutton.transform, 0.4f, 1.25f));
-        if (restartbutton != null)
-        {
-            yield return StartCoroutine(PopInElement(restartbutton.transform, 0.4f, 1.25f));
-        }
-    }
-
-    private IEnumerator PopInElement(Transform target, float duration, float overshoot)
-    {
-        if (target == null) yield break;
-
-        float elapsed = 0f;
-        target.localScale = Vector3.zero;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-
-            float c1 = overshoot;
-            float c3 = c1 + 1f;
-            float scale = 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
-
-            target.localScale = Vector3.one * Mathf.Max(0f, scale);
-            yield return null;
-        }
-
-        target.localScale = Vector3.one;
-    }
-
-    private void SetElementScale(Transform t, float scale)
-    {
-        if (t != null) t.localScale = Vector3.one * scale;
-    }
-
-    public void RestartGame()
-    {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
-
-    public void GoToHome()
-    {
-        if (!string.IsNullOrEmpty(homeSceneName))
-        {
-            SceneManager.LoadScene(homeSceneName);
-        }
-        else
-        {
-            SceneManager.LoadScene(0);
+            gameOverController.ShowGameOver(currentScore);
         }
     }
 }
