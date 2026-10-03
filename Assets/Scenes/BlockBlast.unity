@@ -1298,6 +1298,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameOverController
   gameOverPanel: {fileID: 1888268103}
+  gameOverBannerText: {fileID: 744872017}
+  bannerFloatDistance: 400
+  bannerDuration: 1.5
   frame: {fileID: 1123432634}
   gameOverText: {fileID: 34066442}
   scoreHeader: {fileID: 245574874}
@@ -1309,19 +1312,41 @@ MonoBehaviour:
   homebutton: {fileID: 1076199920}
   restartbutton: {fileID: 1857394625}
   homeSceneName: Quiz
-  rewardTiers:
-  - tierName: 
-    minScore: 0
-    possibleRewards: []
-  - tierName: 
-    minScore: 0
-    possibleRewards: []
-  - tierName: 
-    minScore: 0
-    possibleRewards: []
-  - tierName: 
-    minScore: 0
-    possibleRewards: []
+  silverItems:
+  - itemId: ITEM_ING_EGG
+    itemName: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E02\u0E48"
+    itemIcon: {fileID: 21300000, guid: fcff8c5b2e6731c4c86ce525f3497f53, type: 3}
+  - itemId: ITEM_ING_HERB
+    itemName: "\u0E2A\u0E21\u0E38\u0E19\u0E44\u0E1E\u0E23"
+    itemIcon: {fileID: 21300000, guid: f858cbf0199ecba47b92e1360ed6354b, type: 3}
+  - itemId: ITEM_ING_CHIC_DROP
+    itemName: "\u0E21\u0E39\u0E25\u0E44\u0E01\u0E48\u0E2B\u0E21\u0E31\u0E01"
+    itemIcon: {fileID: 21300000, guid: fcff8c5b2e6731c4c86ce525f3497f53, type: 3}
+  - itemId: ITEM_ING_SANDPILE
+    itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22"
+    itemIcon: {fileID: 21300000, guid: 42991a1ff2a2aaa48a7dfdde154817e4, type: 3}
+  - itemId: ITEM_ING_SEAWEED_POTION
+    itemName: "\u0E42\u0E1E\u0E0A\u0E31\u0E48\u0E19\u0E2A\u0E32\u0E2B\u0E23\u0E48\u0E32\u0E22"
+    itemIcon: {fileID: 21300000, guid: f35711a73d3e9a64d838b076c9168ac8, type: 3}
+  goldItems:
+  - itemId: ITEM_ING_ANCIENT_SOIL
+    itemName: "\u0E14\u0E34\u0E19\u0E42\u0E1A\u0E23\u0E32\u0E13"
+    itemIcon: {fileID: 21300000, guid: 60cb8e4714c371f459e1496b3c044851, type: 3}
+  - itemId: ITEM_ING_SHRIMP
+    itemName: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E38\u0E49\u0E07\u0E1A\u0E14"
+    itemIcon: {fileID: 21300000, guid: 2f684a2f98f74274ab0cbd07cda355fb, type: 3}
+  wateringCard30:
+    itemId: ITEM_BB_REDUCE_30
+    itemName: "\u0E15\u0E31\u0E4B\u0E27\u0E23\u0E14\u0E40\u0E27\u0E25\u0E32\u0E23\u0E14\u0E19\u0E49\u0E33 30%"
+    itemIcon: {fileID: 21300000, guid: 7e7f2219c3186144f901bfe40f0de24b, type: 3}
+  wateringCard50:
+    itemId: ITEM_BB_REDUCE_50
+    itemName: "\u0E15\u0E31\u0E4B\u0E27\u0E23\u0E14\u0E40\u0E27\u0E25\u0E32\u0E23\u0E14\u0E19\u0E49\u0E33 50%"
+    itemIcon: {fileID: 21300000, guid: ee390409694b23947a71854afbdb94fb, type: 3}
+  revivePotion:
+    itemId: ITEM_BB_REVIVE_POTION
+    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E23\u0E48\u0E32\u0E07"
+    itemIcon: {fileID: 21300000, guid: 73e326aa99675954dad9318919101bac, type: 3}
   rotateSpeed: 20
 --- !u!4 &700068769
 Transform:
@@ -1584,6 +1609,143 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 733820440}
+  m_CullTransparentMesh: 1
+--- !u!1 &744872015
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 744872016}
+  - component: {fileID: 744872018}
+  - component: {fileID: 744872017}
+  m_Layer: 5
+  m_Name: game over banner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &744872016
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 744872015}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1958331672}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 590.9395, y: -130.6367}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &744872017
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 744872015}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: "\u0E08\u0E1A\u0E40\u0E01\u0E21\u0E41\u0E25\u0E49\u0E27!"
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: c251f96d393bf054d907ac2df6ed504f, type: 2}
+  m_sharedMaterial: {fileID: -2205642066420432197, guid: c251f96d393bf054d907ac2df6ed504f, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 0
+  m_fontColorGradient:
+    topLeft: {r: 0, g: 0, b: 0, a: 1}
+    topRight: {r: 0, g: 0, b: 0, a: 1}
+    bottomLeft: {r: 0, g: 0, b: 0, a: 1}
+    bottomRight: {r: 0, g: 0, b: 0, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 100
+  m_fontSizeBase: 100
+  m_fontWeight: 400
+  m_enableAutoSizing: 0
+  m_fontSizeMin: 18
+  m_fontSizeMax: 72
+  m_fontStyle: 0
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 8192
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 1
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 0
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 0
+  m_ActiveFontFeatures: 6e72656bu
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!222 &744872018
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 744872015}
   m_CullTransparentMesh: 1
 --- !u!1 &750518589
 GameObject:
@@ -2590,6 +2752,7 @@ MonoBehaviour:
   cellPrefab: {fileID: 791944527007578201, guid: 7db46e8afec0908439e7a27bf5557d0b, type: 3}
   boardGrid: {fileID: 1600364590}
   squarePrefab: {fileID: 5137061981436930260, guid: 968e0abe80a375c4d92a36ea6228ebae, type: 3}
+  comboTextPrefab: {fileID: 9109290840634671815, guid: e351a19b9449bf14a98bfd3cc03eef75, type: 3}
   ScoreText: {fileID: 928757795}
   BestScoreText: {fileID: 952462916}
   gameOverController: {fileID: 700068768}
@@ -3696,6 +3859,7 @@ RectTransform:
   - {fileID: 952462915}
   - {fileID: 711959322}
   - {fileID: 1600364590}
+  - {fileID: 744872016}
   - {fileID: 468595959}
   - {fileID: 1888268104}
   - {fileID: 940789976}

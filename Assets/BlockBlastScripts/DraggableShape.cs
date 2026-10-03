@@ -31,7 +31,7 @@ public class DraggableShape : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
 
     public void SetGreyOut(bool isGrey)
     {
-        IsInteractable = !isGrey;
+        IsInteractable = !isGrey; // ถ้าเป็นสีเทา จะลากไม่ได้
 
         foreach (Transform piece in SquarePieces)
         {
@@ -62,13 +62,15 @@ public class DraggableShape : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
 
         rectTransform.anchoredPosition += eventData.delta / canvas.scaleFactor;
 
+        // แสดงเงา Preview
         if (GridManager.Instance.TryFindSnapPosition(SquarePieces, LocalOffsets, out int row, out int col))
         {
             GridManager.Instance.ShowPreview(row, col, Pattern);
         }
         else
         {
-            GridManager.Instance.ClearPreview();
+            GridManager.Instance.ClearPreview(); 
+            // ถ้าไม่ตรงช่อง หรือวางไม่ได้ ให้ลบเงาออก
         }
     }
 
@@ -79,6 +81,7 @@ public class DraggableShape : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
         canvasGroup.blocksRaycasts = true;
 
         bool placed = false;
+        // ตรวจสอบว่าปล่อยในตำแหน่งที่วางลงกระดานได้หรือไม่
         if (GridManager.Instance.TryFindSnapPosition(SquarePieces, LocalOffsets, out int row, out int col))
         {
             placed = GridManager.Instance.PlaceShape(row, col, Pattern);

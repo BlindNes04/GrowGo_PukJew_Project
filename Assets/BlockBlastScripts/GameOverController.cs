@@ -8,22 +8,20 @@ using TMPro;
 [System.Serializable]
 public class RewardItem
 {
-    public string itemName;
-    public Sprite itemIcon;
-}
-
-[System.Serializable]
-public class ScoreRewardTier
-{
-    public string tierName;
-    public int minScore;
-    public List<RewardItem> possibleRewards;
+    public string itemId;     
+    public string itemName;   
+    public Sprite itemIcon;  
 }
 
 public class GameOverController : MonoBehaviour
 {
     [Header("Game Over GameObject")]
     [SerializeField] private GameObject gameOverPanel;
+
+    [Header("Game Over Banner")]
+    [SerializeField] private TextMeshProUGUI gameOverBannerText;
+    [SerializeField] private float bannerFloatDistance = 80f;
+    [SerializeField] private float bannerDuration = 0.85f;
 
     [Header("Elements to Pop/Fade")]
     [SerializeField] private Transform frame;
@@ -40,8 +38,15 @@ public class GameOverController : MonoBehaviour
     [SerializeField] private Button restartbutton;
     [SerializeField] private string homeSceneName = "MainMenu";
 
-    [Header("Reward Tiers")]
-    [SerializeField] private List<ScoreRewardTier> rewardTiers = new List<ScoreRewardTier>();
+    [Header("Reward (Silver)")]
+    [SerializeField] private List<RewardItem> silverItems = new List<RewardItem>();
+    [Header("Reward (Gold)")]
+    [SerializeField] private List<RewardItem> goldItems = new List<RewardItem>();
+
+    [Header("Reward (Special)")]
+    [SerializeField] private RewardItem wateringCard30;
+    [SerializeField] private RewardItem wateringCard50;
+    [SerializeField] private RewardItem revivePotion;
 
     [Header("Sunburst Settings")]
     [SerializeField] private float rotateSpeed = 20f;
@@ -57,6 +62,7 @@ public class GameOverController : MonoBehaviour
     private void Start()
     {
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (gameOverBannerText != null) gameOverBannerText.gameObject.SetActive(false);
     }
 
     private void Update()
@@ -72,54 +78,115 @@ public class GameOverController : MonoBehaviour
         if (isShown) return;
         isShown = true;
 
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(true);
+        if (finalScore != null) finalScore.text = finalScoreVal.ToString();
 
-            if (finalScore != null) finalScore.text = finalScoreVal.ToString();
-
-            PickRewardByScore(finalScoreVal);
-            StartCoroutine(AnimateGameOverPopup());
-        }
+        PickRewardByScore(finalScoreVal);
+        StartCoroutine(AnimateGameOverPopup());
     }
 
     private void PickRewardByScore(int scoreVal)
     {
-        ScoreRewardTier matchedTier = null;
+        RewardItem chosenReward = null;
+        float roll = Random.Range(0f, 100f);
 
-        for (int i = rewardTiers.Count - 1; i >= 0; i--)
+        // คะแนนต่ำกว่า 5,000 
+        if (scoreVal < 5000)
         {
-            if (scoreVal >= rewardTiers[i].minScore)
+            if (roll < 20f)
             {
-                matchedTier = rewardTiers[i];
-                break;
+                chosenReward = wateringCard30;
+            }
+            else
+            {
+                chosenReward = GetRandomFromList(silverItems);
+            }
+        }
+        // คะแนน 5,000 - 9,999
+        else if (scoreVal < 10000)
+        {
+            if (roll < 25f)
+            {
+                chosenReward = wateringCard50; 
+            }
+            else if (roll < 60f)
+            {
+                chosenReward = wateringCard30; 
+            }
+            else
+            {
+                chosenReward = GetRandomFromList(silverItems); 
+            }
+        }
+        // คะแนน 10,000 ขึ้นไป
+        else
+        {
+            if (roll < 15f)
+            {
+                chosenReward = revivePotion;   
+            }
+            else if (roll < 55f)
+            {
+                chosenReward = wateringCard50; 
+            }
+            else if (roll < 85f)
+            {
+                chosenReward = wateringCard30; 
+            }
+            else
+            {
+                chosenReward = GetRandomFromList(goldItems);
             }
         }
 
-        if (matchedTier == null && rewardTiers.Count > 0)
+        if (chosenReward != null)
         {
-            matchedTier = rewardTiers[0];
-        }
-
-        if (matchedTier != null && matchedTier.possibleRewards != null && matchedTier.possibleRewards.Count > 0)
-        {
-            int randIndex = Random.Range(0, matchedTier.possibleRewards.Count);
-            RewardItem selectedReward = matchedTier.possibleRewards[randIndex];
-
-            if (itemImg != null && selectedReward.itemIcon != null)
+            if (itemImg != null && chosenReward.itemIcon != null)
             {
-                itemImg.sprite = selectedReward.itemIcon;
+                itemImg.sprite = chosenReward.itemIcon;
             }
 
             if (itemName != null)
             {
-                itemName.text = selectedReward.itemName;
+                itemName.text = chosenReward.itemName;
             }
+
+            SaveRewardToInventory(chosenReward.itemId);
         }
+    }
+
+    private RewardItem GetRandomFromList(List<RewardItem> list)
+    {
+        if (list == null || list.Count == 0) return null;
+        return list[Random.Range(0, list.Count)];
+    }
+
+    private void SaveRewardToInventory(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return;
+
+        Debug.Log($"[Reward] มอบไอเทม: {itemId}");
+
+        int currentQty = PlayerPrefs.GetInt("INV_" + itemId, 0);
+        PlayerPrefs.SetInt("INV_" + itemId, currentQty + 1);
+        PlayerPrefs.Save();
     }
 
     private IEnumerator AnimateGameOverPopup()
     {
+        if (gameOverBannerText != null)
+        {
+            yield return StartCoroutine(PlayBannerAnimation());
+        }
+        else
+        {
+            yield return new WaitForSeconds(0.85f);
+        }
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+
         float baseStartScale = 0.85f;
         SetElementScale(frame, 0.82f);
         SetElementScale(gameOverText, baseStartScale);
@@ -151,13 +218,49 @@ public class GameOverController : MonoBehaviour
         }
     }
 
+    private IEnumerator PlayBannerAnimation()
+    {
+        RectTransform bannerRect = gameOverBannerText.rectTransform;
+        Vector2 startPos = bannerRect.anchoredPosition;
+        Vector2 targetPos = startPos + new Vector2(0f, bannerFloatDistance);
+
+        Color originalColor = gameOverBannerText.color;
+        gameOverBannerText.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0f);
+        gameOverBannerText.gameObject.SetActive(true);
+
+        float elapsed = 0f;
+        while (elapsed < bannerDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / bannerDuration;
+
+            bannerRect.anchoredPosition = Vector2.Lerp(startPos, targetPos, t);
+
+            float alpha = 1f;
+            if (t < 0.25f)
+            {
+                alpha = t / 0.25f;
+            }
+            else if (t > 0.7f)
+            {
+                alpha = Mathf.Lerp(1f, 0f, (t - 0.7f) / 0.3f);
+            }
+
+            gameOverBannerText.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+            yield return null;
+        }
+
+        gameOverBannerText.gameObject.SetActive(false);
+        bannerRect.anchoredPosition = startPos;
+        gameOverBannerText.color = originalColor;
+    }
+
     private IEnumerator SmoothPop(Transform target, float duration, float overshoot, float startScale = 0.85f)
     {
         if (target == null) yield break;
 
         float elapsed = 0f;
         target.localScale = Vector3.one * startScale;
-
         float s = (overshoot - 1f) * 1.70158f;
 
         while (elapsed < duration)
@@ -165,7 +268,7 @@ public class GameOverController : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
 
-            // Ease-Out Back
+            // Ease Out Back
             t -= 1f;
             float easeOut = (t * t * ((s + 1f) * t + s) + 1f);
 
@@ -177,25 +280,19 @@ public class GameOverController : MonoBehaviour
 
         target.localScale = Vector3.one;
     }
-    private void SetElementScale(Transform t, float scale)
+
+    private void SetElementScale(Transform target, float scale)
     {
-        if (t != null) t.localScale = Vector3.one * scale;
+        if (target != null) target.localScale = Vector3.one * scale;
     }
 
-    public void RestartGame()
+    private void RestartGame()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    public void GoToHome()
+    private void GoToHome()
     {
-        if (!string.IsNullOrEmpty(homeSceneName))
-        {
-            SceneManager.LoadScene(homeSceneName);
-        }
-        else
-        {
-            SceneManager.LoadScene(0);
-        }
+        SceneManager.LoadScene(homeSceneName);
     }
 }

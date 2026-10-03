@@ -16,6 +16,9 @@ public class GridManager : MonoBehaviour
     public RectTransform boardGrid; 
     public GameObject squarePrefab; 
 
+    [Header("Combo Text Prefab")]
+    [SerializeField] private GameObject comboTextPrefab; 
+
     [Header("Score UI")]
     public TextMeshProUGUI ScoreText;        
     public TextMeshProUGUI BestScoreText;    
@@ -45,6 +48,7 @@ public class GridManager : MonoBehaviour
         LoadAndDisplayScores();
     }
 
+    // สร้างช่องตาราง 8x8
     void CreateBoard()
     {
         for (int r = 0; r < ROWS; r++)
@@ -147,6 +151,7 @@ public class GridManager : MonoBehaviour
         return true;
     }
 
+    // แสดงเงาโปร่งใส (Alpha 0.25) บนกระดานตามตำแหน่งที่บล็อกจะลง
     public void ShowPreview(int startRow, int startCol, int[,] pattern)
     {
         ClearPreview();
@@ -190,6 +195,7 @@ public class GridManager : MonoBehaviour
         activePreviews.Clear();
     }
 
+    // นำบล็อกลงกระดาน อัปเดตสถานะ เพิ่มคะแนน และสั่งตรวจแถวเต็ม
     public bool PlaceShape(int startRow, int startCol, int[,] pattern)
     {
         if (!CanPlace(startRow, startCol, pattern)) return false;
@@ -208,7 +214,7 @@ public class GridManager : MonoBehaviour
                     int tr = startRow + r;
                     int tc = startCol + c;
 
-                    occupied[tr, tc] = true;
+                    occupied[tr, tc] = true; // นำบล็อกลงกระดาน
                     GameObject placedObj = Instantiate(squarePrefab, cellTransforms[tr, tc]);
                     RectTransform rt = placedObj.GetComponent<RectTransform>();
                     rt.sizeDelta = cellTransforms[tr, tc].sizeDelta;
@@ -220,12 +226,12 @@ public class GridManager : MonoBehaviour
             }
         }
 
-        AddScore(placedCount * 10);
-        CheckAndClearLines();
+        AddScore(placedCount * 10); // ได้แต้มตามจำนวนชิ้นที่วางลงไป
+        CheckAndClearLines(); // เช็กว่ามีแถวเต็มหรือไม่
 
         if (BlockSpawner.Instance != null)
         {
-            BlockSpawner.Instance.CheckAllAvailableShapes();
+            BlockSpawner.Instance.CheckAllAvailableShapes(); // สั่ง Spawner เช็กบล็อกที่เหลือ
         }
 
         return true;
@@ -233,6 +239,7 @@ public class GridManager : MonoBehaviour
 
     private void CheckAndClearLines()
     {
+        // หาแถวแนวนอนและแนวตั้ที่บล็อกเต็มทุกช่อง
         List<int> fullRows = new List<int>();
         List<int> fullCols = new List<int>();
 
@@ -260,13 +267,14 @@ public class GridManager : MonoBehaviour
 
         if (linesCleared == 0)
         {
-            currentCombo = 0;
+            currentCombo = 0; // ไม่มีแถวเคลียร์ คอมโบ = 0
             return;
         }
 
-        currentCombo++;
+        currentCombo++; // แถวเคลียร์ ได้คอมโบเพิ่ม
         HashSet<Vector2Int> cellsToClear = new HashSet<Vector2Int>();
 
+        // สร้างเลเซอร์แนวนอนและแนวตั้งผ่านแถวที่เคลียร์
         foreach (int r in fullRows)
         {
             for (int c = 0; c < COLS; c++) cellsToClear.Add(new Vector2Int(r, c));
@@ -295,7 +303,8 @@ public class GridManager : MonoBehaviour
 
         if (blocksToAnimate.Count > 0) averageWorldPos /= blocksToAnimate.Count;
 
-        int baseLineScore = (linesCleared * (linesCleared + 1) / 2) * 100;
+        // โบนัสคอมโบต่อเนื่อง
+        int baseLineScore = (linesCleared * (linesCleared + 1) / 2) * 100; 
         int comboBonus = (currentCombo > 1) ? (currentCombo * 100) : 0;
         int totalEarned = baseLineScore + comboBonus;
 
@@ -329,32 +338,38 @@ public class GridManager : MonoBehaviour
 
     private IEnumerator SpawnComboOrScoreText(int score, int combo, bool isAllClear, Vector3 worldPos)
     {
-        GameObject textObj = new GameObject("ComboText", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObj.transform.SetParent(boardGrid.root, false);
+        if (comboTextPrefab == null) yield break;
+
+        GameObject textObj = Instantiate(comboTextPrefab, boardGrid.root);
         textObj.transform.position = worldPos;
 
         TextMeshProUGUI tmp = textObj.GetComponent<TextMeshProUGUI>();
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.raycastTarget = false;
-        tmp.outlineWidth = 0.28f;
-        tmp.outlineColor = new Color32(20, 20, 30, 255);
+        if (tmp != null)
+        {
+            if (combo > 1)
+            {
+                tmp.text = $"<color=#FFFFFF>คอมโบ</color> <color=#FFCC00>X{combo}</color>";
+            }
+            else
+            {
+                string[] normalPraises = { "เยี่ยม!", "ดีมาก!", "สวยงาม!", "แจ๋วเลย!", "เจ๋งมาก!" };
+                string[] highPraises = { "สุดยอด!", "เพอร์เฟกต์!", "ว้าว!", "ยอดเยี่ยม!", "เก่งมาก!" };
 
-        if (combo > 1)
-        {
-            tmp.fontSize = 86;
-            tmp.text = $"<color=#FFFFFF>COMBO</color> <color=#FFCC00>X{combo}</color>";
-        }
-        else
-        {
-            tmp.fontSize = 78;
-            string praise = (score >= 300) ? "EXCELLENT" : "GOOD";
-            tmp.text = $"<color=#FFB300>+{score}</color>\n<color=#4EFA72>{praise}</color>";
+                string praise;
+                if (score >= 400)
+                {
+                    praise = highPraises[Random.Range(0, highPraises.Length)];
+                }
+                else
+                {
+                    praise = normalPraises[Random.Range(0, normalPraises.Length)];
+                }
+
+                tmp.text = $"<color=#FFB300>+{score}</color>\n<color=#4EFA72>{praise}</color>";
+            }
         }
 
         RectTransform rt = textObj.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(700, 300);
-
         float duration = 0.85f;
         float elapsed = 0f;
         Vector3 startScale = Vector3.zero;
@@ -375,7 +390,7 @@ public class GridManager : MonoBehaviour
                 rt.localScale = Vector3.Lerp(targetScale, Vector3.one, (t - 0.25f) / 0.75f);
                 rt.position = startPos + new Vector3(0, (t - 0.25f) * 60f, 0);
 
-                if (t > 0.6f)
+                if (t > 0.6f && tmp != null)
                 {
                     float fadeT = (t - 0.6f) / 0.4f;
                     tmp.alpha = Mathf.Lerp(1f, 0f, fadeT);
@@ -398,8 +413,9 @@ public class GridManager : MonoBehaviour
         tmp.fontSize = 92;
         tmp.fontStyle = FontStyles.Bold;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.text = $"<color=#FFE600>ALL CLEAR!</color>\n<color=#FFFFFF>+{bonus}</color>";
-        tmp.outlineWidth = 0.3f;
+
+        tmp.text = $"<b><color=#FFE600>ล้างกระดาน!</color></b>\n<b><color=#FFFFFF>+{bonus}</color></b>";
+        tmp.outlineWidth = 0.38f;
         tmp.outlineColor = new Color32(20, 20, 30, 255);
         tmp.raycastTarget = false;
 
@@ -531,7 +547,7 @@ public class GridManager : MonoBehaviour
         if (currentScore > bestScore)
         {
             bestScore = currentScore;
-            PlayerPrefs.SetInt("BestScore", bestScore);
+            PlayerPrefs.SetInt("BestScore", bestScore); // อัปเดตสถิติสูงสุด
             PlayerPrefs.Save();
             if (BestScoreText != null) BestScoreText.text = bestScore.ToString();
         }
@@ -554,13 +570,7 @@ public class GridManager : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        StartCoroutine(GameOverRoutine());
-    }
-
-    private IEnumerator GameOverRoutine()
-    {
-        yield return new WaitForSeconds(0.3f);
-
+        // ส่งคะแนนสุดท้ายไปให้หน้าต่าง Game Over แสดงผลและแจกรางวัล
         if (gameOverController != null)
         {
             gameOverController.ShowGameOver(currentScore);
