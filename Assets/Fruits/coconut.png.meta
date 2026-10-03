@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 470f38276fff2c44092a3fdf6bef3020
+guid: f6c9ab5dc5a79d043bb0197ea37202c2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8617278338890539712
-    second: mango_0
+      213: 4097144792221710411
+    second: coconut_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,13 +115,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: mango_0
+      name: coconut_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 432
-        height: 432
+        width: 480
+        height: 480
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0c22d303ef8b69770800000000000000
-      internalID: 8617278338890539712
+      spriteID: b4877bd1b7bfbd830800000000000000
+      internalID: 4097144792221710411
       vertices: []
       indices: 
       edges: []
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      mango_0: 8617278338890539712
+      coconut_0: 4097144792221710411
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
