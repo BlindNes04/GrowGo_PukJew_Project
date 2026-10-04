@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 463598186917712982}
   - component: {fileID: 1256132444181651170}
   - component: {fileID: -874531292683911267}
+  - component: {fileID: -6405083498191931312}
   m_Layer: 0
   m_Name: orange_0
   m_TagString: Untagged
@@ -81,7 +82,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5
   m_MaskInteraction: 0
   m_Sprite: {fileID: -6410442598547967069, guid: a1ac683f5c25b0541834453de4f724d5, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -157,3 +158,18 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 0
+--- !u!114 &-6405083498191931312
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7565557790249587289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df465d5b6b7a35040ba71817be0809b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FruitMerger
+  fruitLevel: 4
+  nextFruitPrefab: {fileID: 6004456314510894322, guid: 8a56d616e4e4e304d853a3e324272ea1, type: 3}
+  scoreValue: 10

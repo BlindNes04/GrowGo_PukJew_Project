@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5237507367195840135}
   - component: {fileID: 7722359583978853715}
   - component: {fileID: 4904446902960746826}
+  - component: {fileID: 6129453714327491437}
   m_Layer: 0
   m_Name: tomato_0
   m_TagString: Untagged
@@ -81,7 +82,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5
   m_MaskInteraction: 0
   m_Sprite: {fileID: -3962807554240710951, guid: ff1ea11e4dbac304cab710b435827b7c, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -157,3 +158,18 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: -0.0038193648}
   m_Radius: 0.6980907
+--- !u!114 &6129453714327491437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8128700007118275789}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df465d5b6b7a35040ba71817be0809b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FruitMerger
+  fruitLevel: 1
+  nextFruitPrefab: {fileID: 686211103020547591, guid: 79189148a58ceef49a86782f3b215c4c, type: 3}
+  scoreValue: 1

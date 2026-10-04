@@ -1,20 +1,18 @@
-using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using System.Collections;
 using UnityEngine.UI;
-using UnityEngine.EventSystems; // เพิ่มตัวนี้เพื่อจัดการปุ่ม UI
 
 public class FruitSpawner : MonoBehaviour
 {
-    [Header("ตั้งค่าผลไม้ (สุ่มเลเวล 1-5)")]
+    [Header("ตั้งค่าผลไม้")]
     public GameObject[] fruitPrefabs;
     public Image nextFruitImage;
-
-    [Header("ขอบเขตการเลื่อนซ้าย-ขวา")]
     public float leftBound = 173f;
     public float rightBound = 1000f;
 
     [Header("เส้นเล็ง (Aim Line)")]
-    public LineRenderer aimLine; // ลาก Line Renderer มาใส่ช่องนี้
+    public LineRenderer aimLine; // กลับมาใช้ Line Renderer
 
     private GameObject currentFruit;
     private int nextFruitIndex;
@@ -22,51 +20,76 @@ public class FruitSpawner : MonoBehaviour
 
     void Start()
     {
-        if (aimLine != null) aimLine.enabled = false; // ปิดเส้นเล็งตอนเริ่ม
+        if (aimLine != null) aimLine.enabled = false;
 
-        nextFruitIndex = Random.Range(0, 4); // สุ่มแค่เลเวล 1 ถึง 4
+        nextFruitIndex = Random.Range(0, fruitPrefabs.Length);
         SpawnNewFruit();
     }
 
     void Update()
     {
+        // ถ้ารอปล่อยอยู่ และมีผลไม้อยู่บนหัว
         if (isReadyToDrop && currentFruit != null)
         {
-            // เช็คว่ากดเมาส์ค้าง และ "ไม่ได้" กดโดนปุ่ม UI อยู่
+            // 1. จัดการการเลื่อนผลไม้ (เฉพาะตอนกดเมาส์ค้าง)
             if (Input.GetMouseButton(0) && !EventSystem.current.IsPointerOverGameObject())
             {
                 Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
                 float clampedX = Mathf.Clamp(mousePos.x, leftBound, rightBound);
-
-                // 1. เลื่อนผลไม้ตามแนวแกน X
                 currentFruit.transform.position = new Vector3(clampedX, transform.position.y, 0);
+            }
 
-                // 2. วาดเส้นเล็งจากผลไม้ลงไปที่ก้นกล่อง
-                if (aimLine != null)
+            // 2. วาดเส้นเล็ง (ทำตลอดเวลา ไม่ต้องรอกดเมาส์)
+            if (aimLine != null)
+            {
+                aimLine.enabled = true;
+                Vector2 startPos = currentFruit.transform.position;
+                aimLine.SetPosition(0, startPos); // จุดเริ่มที่ผลไม้
+
+                // ปิดกรอบชนของผลไม้ที่ถืออยู่ชั่วคราว
+                //Collider2D col = currentFruit.GetComponent<Collider2D>();
+                //if (col != null) col.enabled = false;
+
+                // ยิงเรดาร์ลงด้านล่าง
+                RaycastHit2D hit = Physics2D.Raycast(startPos, Vector2.down);
+
+                // เปิดกรอบชนกลับคืน
+                //if (col != null) col.enabled = true;
+
+                // อัปเดตจุดปลายเส้น ให้หยุดตรงที่ชนพอดี
+                if (hit.collider != null)
                 {
-                    aimLine.enabled = true;
-                    aimLine.SetPosition(0, currentFruit.transform.position); // จุดเริ่มที่ผลไม้
-                    aimLine.SetPosition(1, new Vector3(clampedX, -10f, 0));  // จุดปลายชี้ลงพื้น (ปรับเลข -10f ได้ถ้ายาวไม่พอ)
+                    aimLine.SetPosition(1, hit.point);
+                }
+                else
+                {
+                    aimLine.SetPosition(1, new Vector3(startPos.x, -10f, 0));
                 }
             }
-            else
-            {
-                // ถ้าปล่อยเมาส์ ให้ซ่อนเส้นเล็ง
-                if (aimLine != null) aimLine.enabled = false;
-            }
+        }
+        else
+        {
+            // ถ้าปล่อยไปแล้ว ให้ซ่อนเส้น
+            if (aimLine != null) aimLine.enabled = false;
         }
     }
 
     public void SpawnNewFruit()
     {
         currentFruit = Instantiate(fruitPrefabs[nextFruitIndex], transform.position, Quaternion.identity);
-
         Rigidbody2D rb = currentFruit.GetComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
         rb.linearVelocity = Vector2.zero;
 
-        nextFruitIndex = Random.Range(0, 4);
-        nextFruitImage.sprite = fruitPrefabs[nextFruitIndex].GetComponent<SpriteRenderer>().sprite;
+        // ปิดการชนตอนเพิ่งเสก เพื่อไม่ให้กระเด็นตอนผลไม้ล้นกล่อง
+        Collider2D col = currentFruit.GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        nextFruitIndex = Random.Range(0, fruitPrefabs.Length);
+        if (nextFruitImage != null)
+        {
+            nextFruitImage.sprite = fruitPrefabs[nextFruitIndex].GetComponent<SpriteRenderer>().sprite;
+        }
 
         isReadyToDrop = true;
     }
@@ -76,12 +99,19 @@ public class FruitSpawner : MonoBehaviour
         if (isReadyToDrop && currentFruit != null)
         {
             isReadyToDrop = false;
-            if (aimLine != null) aimLine.enabled = false; // ปิดเส้นเล็ง
+            if (aimLine != null) aimLine.enabled = false; // ปิดเส้นทันทีที่กดปล่อย
 
             Rigidbody2D rb = currentFruit.GetComponent<Rigidbody2D>();
             rb.gravityScale = 1f;
-            currentFruit = null;
 
+            // 💡 เพิ่มบรรทัดนี้: แอบใส่แรงผลักซ้ายหรือขวาแบบสุ่มนิดๆ เพื่อทำลายสมดุลไม่ให้มันซ้อนเป็นหอคอย
+            rb.linearVelocity = new Vector2(Random.Range(-0.2f, 0.2f), 0f);
+
+            // เปิดการชนตอนปล่อย ให้ร่วงไปทับลูกอื่นได้
+            Collider2D col = currentFruit.GetComponent<Collider2D>();
+            if (col != null) col.enabled = true;
+
+            currentFruit = null;
             StartCoroutine(WaitAndSpawn(1.5f));
         }
     }

@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6957348855662767483}
   - component: {fileID: 3981255403926401738}
   - component: {fileID: 3754331750600374040}
+  - component: {fileID: -2020161079411422792}
   m_Layer: 0
   m_Name: peach_0
   m_TagString: Untagged
@@ -81,7 +82,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5
   m_MaskInteraction: 0
   m_Sprite: {fileID: -5197687505146949456, guid: 1afb572f890a000468556f3c3262e2e3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -157,3 +158,18 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 0
+--- !u!114 &-2020161079411422792
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6004456314510894322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df465d5b6b7a35040ba71817be0809b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FruitMerger
+  fruitLevel: 5
+  nextFruitPrefab: {fileID: 903561198749058849, guid: 9c1181957ff17e848b2213f531acf80b, type: 3}
+  scoreValue: 15
