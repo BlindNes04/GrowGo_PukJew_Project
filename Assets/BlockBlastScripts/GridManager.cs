@@ -226,6 +226,11 @@ public class GridManager : MonoBehaviour
             }
         }
 
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayPlaceSound();
+        }
+
         AddScore(placedCount * 10); // ได้แต้มตามจำนวนชิ้นที่วางลงไป
         CheckAndClearLines(); // เช็กว่ามีแถวเต็มหรือไม่
 
@@ -239,7 +244,7 @@ public class GridManager : MonoBehaviour
 
     private void CheckAndClearLines()
     {
-        // หาแถวแนวนอนและแนวตั้ที่บล็อกเต็มทุกช่อง
+        // หาแถวแนวนอนและแนวตั้งที่บล็อกเต็มทุกช่อง
         List<int> fullRows = new List<int>();
         List<int> fullCols = new List<int>();
 
@@ -269,6 +274,11 @@ public class GridManager : MonoBehaviour
         {
             currentCombo = 0; // ไม่มีแถวเคลียร์ คอมโบ = 0
             return;
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayBreakSound();
         }
 
         currentCombo++; // แถวเคลียร์ ได้คอมโบเพิ่ม
@@ -563,6 +573,11 @@ public class GridManager : MonoBehaviour
         if (isGameOver) return;
         isGameOver = true;
 
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayGameOverSound();
+        }
+
         if (currentScore > bestScore)
         {
             bestScore = currentScore;
@@ -570,7 +585,6 @@ public class GridManager : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        // ส่งคะแนนสุดท้ายไปให้หน้าต่าง Game Over แสดงผลและแจกรางวัล
         if (gameOverController != null)
         {
             gameOverController.ShowGameOver(currentScore);
