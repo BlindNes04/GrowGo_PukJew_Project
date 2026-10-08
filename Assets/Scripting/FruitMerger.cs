@@ -37,6 +37,13 @@ public class FruitMerger : MonoBehaviour
                 if (GameManager.instance != null)
                 {
                     GameManager.instance.AddScore(this.scoreValue * 2);
+
+                    // 💡 เพิ่มบรรทัดนี้ลงไป: ถ้าผลไม้ที่เราเพิ่งสร้างคือ LV9 (ถ้า LV8 ของคุณคือ fruitLevel 8 ให้ใส่ 8)
+                    // (แปลว่าเมื่อ LV8 ชนกับ LV8 จะกลายเป็น LV9)
+                    if (this.fruitLevel == 8)
+                    {
+                        GameManager.instance.UnlockMelon();
+                    }
                 }
 
                 // ทำลายผลไม้ร่างเก่า

@@ -172,4 +172,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FruitMerger
   fruitLevel: 2
   nextFruitPrefab: {fileID: 8780718044309319050, guid: a6f2f00ade78d154f89704a27ff8691d, type: 3}
-  scoreValue: 3
+  scoreValue: 6
