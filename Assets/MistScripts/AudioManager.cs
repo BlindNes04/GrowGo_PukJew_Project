@@ -12,6 +12,7 @@ public class AudioManager : MonoBehaviour
     public AudioClip bgmClip;     
     public AudioClip clickSFX;   
     public AudioClip errorSFX;   
+    public AudioClip itemFoundSFX;   
 
     void Awake()
     {

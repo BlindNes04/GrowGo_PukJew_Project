@@ -6,6 +6,8 @@ using TMPro;
 
 public class GameFlowManager : MonoBehaviour
 {
+    public static GameFlowManager Instance { get; private set; }
+
     [Header("UI Panels")]
     public GameObject startComponent;     
     public GameObject searchComponent;    
@@ -33,6 +35,11 @@ public class GameFlowManager : MonoBehaviour
 
     private const string STAMINA_KEY = "Player_Current_Stamina";
     private const string LAST_DATE_KEY = "Last_Login_Date";
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+    }
 
     void Start()
     {
@@ -89,6 +96,7 @@ public class GameFlowManager : MonoBehaviour
             UpdateStaminaUI();
 
             if (startComponent != null) startComponent.SetActive(false);
+            if (rewardComponent != null) rewardComponent.SetActive(false);
             if (searchComponent != null) searchComponent.SetActive(true);
 
             ShowQuote();
@@ -103,15 +111,22 @@ public class GameFlowManager : MonoBehaviour
         }
     }
 
+    public void BackToStart()
+    {
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(AudioManager.Instance.clickSFX);
+        }
+
+        if (rewardComponent != null) rewardComponent.SetActive(false);
+        if (searchComponent != null) searchComponent.SetActive(false);
+        if (startComponent != null) startComponent.SetActive(true);
+    }
+
     void ShowQuote()
     {
         if (quoteImage == null) return;
-
-        if (quoteCoroutine != null)
-        {
-            StopCoroutine(quoteCoroutine);
-        }
-
+        if (quoteCoroutine != null) StopCoroutine(quoteCoroutine);
         quoteCoroutine = StartCoroutine(FadeQuoteRoutine());
     }
 
@@ -121,7 +136,6 @@ public class GameFlowManager : MonoBehaviour
         yield return new WaitForSeconds(quoteStartDelay);
 
         quoteImage.gameObject.SetActive(true);
-
         Color c = quoteImage.color;
         c.a = 1f;
         quoteImage.color = c;
@@ -144,19 +158,13 @@ public class GameFlowManager : MonoBehaviour
     void ShowAutoFadeError()
     {
         if (errorImage == null) return;
-
-        if (errorCoroutine != null)
-        {
-            StopCoroutine(errorCoroutine);
-        }
-
+        if (errorCoroutine != null) StopCoroutine(errorCoroutine);
         errorCoroutine = StartCoroutine(FadeErrorRoutine());
     }
 
     IEnumerator FadeErrorRoutine()
     {
         errorImage.gameObject.SetActive(true);
-
         Color c = errorImage.color;
         c.a = 1f;
         errorImage.color = c;
@@ -176,30 +184,8 @@ public class GameFlowManager : MonoBehaviour
         errorImage.gameObject.SetActive(false);
     }
 
-    public void ShowReward()
-    {
-        if (searchComponent != null) searchComponent.SetActive(false);
-        if (rewardComponent != null) rewardComponent.SetActive(true);
-    }
-
-    public void BackToStart()
-    {
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX(AudioManager.Instance.clickSFX);
-        }
-
-        if (rewardComponent != null) rewardComponent.SetActive(false);
-        if (searchComponent != null) searchComponent.SetActive(false);
-        if (startComponent != null) startComponent.SetActive(true);
-    }
-
     void UpdateStaminaUI()
     {
-        if (staminaText != null)
-        {
-            staminaText.text = currentStamina.ToString();
-        }
+        if (staminaText != null) staminaText.text = currentStamina.ToString();
     }
-
 }
