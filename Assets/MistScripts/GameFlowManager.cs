@@ -13,6 +13,11 @@ public class GameFlowManager : MonoBehaviour
     public GameObject searchComponent;    
     public GameObject rewardComponent;    
 
+    [Header("Banner Floating Effect")]
+    public RectTransform startBanner; 
+    public float floatSpeed = 2f;     
+    public float floatAmplitude = 3f;
+
     [Header("Error Popup Settings")]
     public Image errorImage;              
     public float showDuration = 1.5f;    
@@ -32,6 +37,7 @@ public class GameFlowManager : MonoBehaviour
     private int currentStamina;
     private Coroutine errorCoroutine;
     private Coroutine quoteCoroutine;
+    private Vector2 bannerStartPos;
 
     private const string STAMINA_KEY = "Player_Current_Stamina";
     private const string LAST_DATE_KEY = "Last_Login_Date";
@@ -43,6 +49,11 @@ public class GameFlowManager : MonoBehaviour
 
     void Start()
     {
+        if (startBanner != null)
+        {
+            bannerStartPos = startBanner.anchoredPosition;
+        }
+
         CheckMidnightReset();
         UpdateStaminaUI();
 
@@ -60,6 +71,15 @@ public class GameFlowManager : MonoBehaviour
                 AudioManager.Instance.bgmSource.loop = true;
                 AudioManager.Instance.bgmSource.Play();
             }
+        }
+    }
+
+    void Update()
+    {
+        if (startBanner != null && startBanner.gameObject.activeInHierarchy)
+        {
+            float newY = bannerStartPos.y + Mathf.Sin(Time.time * floatSpeed) * floatAmplitude;
+            startBanner.anchoredPosition = new Vector2(bannerStartPos.x, newY);
         }
     }
 
@@ -95,6 +115,12 @@ public class GameFlowManager : MonoBehaviour
             PlayerPrefs.Save();
             UpdateStaminaUI();
 
+            // Randomize the item and spawn point
+            if (ItemSpawner.Instance != null)
+            {
+                ItemSpawner.Instance.RandomizeItem();
+            }
+
             if (startComponent != null) startComponent.SetActive(false);
             if (rewardComponent != null) rewardComponent.SetActive(false);
             if (searchComponent != null) searchComponent.SetActive(true);
@@ -107,6 +133,7 @@ public class GameFlowManager : MonoBehaviour
             {
                 AudioManager.Instance.PlaySFX(AudioManager.Instance.errorSFX);
             }
+
             ShowAutoFadeError();
         }
     }

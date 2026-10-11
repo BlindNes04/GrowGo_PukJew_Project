@@ -6,32 +6,44 @@ using TMPro;
 public class RewardController : MonoBehaviour
 {
     [Header("Reward UI Display")]
-    public Image rewardItemImage;           
-    public TextMeshProUGUI rewardNameText;   
-    public TextMeshProUGUI youGotText;       
+    public Image rewardItemImage;
+    public TextMeshProUGUI rewardNameText;
+    public TextMeshProUGUI youGotText;
 
     [Header("Sunburst Settings")]
-    public RectTransform sunburst;          
-    public float rotateSpeed = 20f;         
+    public RectTransform sunburst;
+    public float rotateSpeed = 20f;
 
     [Header("Animation Settings")]
-    public float popDuration = 0.35f;       
+    public float popDuration = 0.35f;
+    public float fadeDuration = 0.4f;
+    public float itemPopOvershoot = 1.2f;
+    public float buttonPopOvershoot = 1.08f;
+    public float textDelay = 0.08f;
 
     [Header("Buttons")]
-    public Button backToStartButton;        
+    public Button backToStartButton;
+
+    private Coroutine sequenceCoroutine;
 
     private void Awake()
     {
         if (backToStartButton != null)
         {
-            backToStartButton.onClick.RemoveAllListeners();
+            backToStartButton.onClick.RemoveListener(OnBackToStartClicked);
             backToStartButton.onClick.AddListener(OnBackToStartClicked);
         }
     }
 
+    private void OnDestroy()
+    {
+        if (backToStartButton != null)
+            backToStartButton.onClick.RemoveListener(OnBackToStartClicked);
+    }
+
     private void Update()
     {
-        if (sunburst != null)
+        if (sunburst != null && sunburst.gameObject.activeInHierarchy)
         {
             sunburst.Rotate(0f, 0f, -rotateSpeed * Time.deltaTime);
         }
@@ -39,80 +51,189 @@ public class RewardController : MonoBehaviour
 
     public void OpenRewardWindow(ItemData item)
     {
-        gameObject.SetActive(true);
-
-        if (item != null)
+        if (item == null)
         {
-            if (rewardItemImage != null)
-            {
-                rewardItemImage.sprite = item.itemIcon;
-                rewardItemImage.enabled = true;
-                rewardItemImage.gameObject.SetActive(true);
-
-                Color c = rewardItemImage.color;
-                c.a = 1f;
-                rewardItemImage.color = c;
-            }
-
-            if (rewardNameText != null)
-            {
-                rewardNameText.text = item.itemName;
-                rewardNameText.enabled = true;
-                rewardNameText.gameObject.SetActive(true);
-            }
+            Debug.LogError(
+                "[RewardController] Received a null item!", this);
+            return;
         }
 
-        StopAllCoroutines();
-        StartCoroutine(PlaySequenceAnimation());
+        gameObject.SetActive(true);
+
+        if (rewardItemImage != null)
+        {
+            rewardItemImage.sprite = item.itemIcon;
+            rewardItemImage.preserveAspect = true;
+            rewardItemImage.enabled = item.itemIcon != null;
+            rewardItemImage.gameObject.SetActive(true);
+        }
+
+        if (rewardNameText != null)
+        {
+            rewardNameText.text = item.itemName ?? "";
+            rewardNameText.gameObject.SetActive(true);
+        }
+
+        if (youGotText != null)
+            youGotText.gameObject.SetActive(true);
+
+        if (sunburst != null)
+            sunburst.gameObject.SetActive(true);
+
+        if (backToStartButton != null)
+            backToStartButton.gameObject.SetActive(true);
+
+        if (sequenceCoroutine != null)
+            StopCoroutine(sequenceCoroutine);
+
+        sequenceCoroutine = StartCoroutine(PlaySequenceAnimation());
     }
 
     private IEnumerator PlaySequenceAnimation()
     {
-        SetScaleZero(sunburst);
-        if (rewardItemImage != null) SetScaleZero(rewardItemImage.rectTransform);
-        if (youGotText != null) SetScaleZero(youGotText.rectTransform);
-        if (rewardNameText != null) SetScaleZero(rewardNameText.rectTransform);
-        if (backToStartButton != null) SetScaleZero(backToStartButton.image.rectTransform);
+        RectTransform buttonRect = backToStartButton != null
+            ? backToStartButton.transform as RectTransform
+            : null;
 
-        if (sunburst != null) StartCoroutine(PopAnimation(sunburst, popDuration, 1.1f));
-        if (rewardItemImage != null) yield return StartCoroutine(PopAnimation(rewardItemImage.rectTransform, popDuration, 1.25f));
+        SetHidden(sunburst);
 
-        yield return new WaitForSeconds(0.08f);
+        if (rewardItemImage != null)
+            SetHidden(rewardItemImage.rectTransform);
 
-        if (youGotText != null) yield return StartCoroutine(PopAnimation(youGotText.rectTransform, popDuration, 1.15f));
+        if (youGotText != null)
+            SetHidden(youGotText.rectTransform);
 
-        yield return new WaitForSeconds(0.08f);
+        if (rewardNameText != null)
+            SetHidden(rewardNameText.rectTransform);
 
-        if (rewardNameText != null) yield return StartCoroutine(PopAnimation(rewardNameText.rectTransform, popDuration, 1.15f));
+        if (buttonRect != null)
+            SetHidden(buttonRect);
+
+        if (sunburst != null)
+        {
+            StartCoroutine(PopAnimation(sunburst, popDuration, 1.1f));
+        }
+
+        // Pop Animation
+        if (rewardItemImage != null)
+        {
+            yield return StartCoroutine(PopAnimation(rewardItemImage.rectTransform, popDuration, itemPopOvershoot));
+        }
+
+        yield return new WaitForSeconds(textDelay);
+
+        // Fade-in Animation
+        if (youGotText != null)
+        {
+            yield return StartCoroutine(FadeAnimation(youGotText.rectTransform, fadeDuration));
+        }
+
+        yield return new WaitForSeconds(textDelay);
+
+        if (rewardNameText != null)
+        {
+            yield return StartCoroutine(FadeAnimation(rewardNameText.rectTransform,fadeDuration));
+        }
 
         yield return new WaitForSeconds(0.12f);
 
-        if (backToStartButton != null) yield return StartCoroutine(PopAnimation(backToStartButton.image.rectTransform, popDuration, 1.1f));
+        // Pop Animation
+        if (buttonRect != null)
+        {
+            yield return StartCoroutine(PopAnimation(buttonRect,popDuration,buttonPopOvershoot));
+        }
+
+        sequenceCoroutine = null;
     }
 
-    private void SetScaleZero(RectTransform target)
+    private void SetHidden(RectTransform target)
     {
-        if (target != null) target.localScale = Vector3.zero;
+        if (target == null) return;
+
+        target.localScale = Vector3.zero;
+
+        CanvasGroup group = GetOrAddCanvasGroup(target.gameObject);
+        group.alpha = 0f;
     }
 
     private IEnumerator PopAnimation(RectTransform target, float duration, float overshoot)
     {
         if (target == null) yield break;
 
-        float elapsed = 0f;
+        CanvasGroup group = GetOrAddCanvasGroup(target.gameObject);
+
         target.localScale = Vector3.zero;
+        group.alpha = 0f;
+
+        if (duration <= 0f)
+        {
+            target.localScale = Vector3.one;
+            group.alpha = 1f;
+            yield break;
+        }
+
+        float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            float backT = 1f + (overshoot - 1f) * Mathf.Sin(t * Mathf.PI);
+            float t = Mathf.Clamp01(elapsed / duration);
 
-            target.localScale = Vector3.one * (Mathf.SmoothStep(0f, 1f, t) * backT);
+            float scaleT = Mathf.SmoothStep(0f, 1f, t);
+
+            float bounce =
+                1f + (overshoot - 1f) * Mathf.Sin(t * Mathf.PI);
+
+            target.localScale = Vector3.one * (scaleT * bounce);
+            group.alpha = t;
+
             yield return null;
         }
 
         target.localScale = Vector3.one;
+        group.alpha = 1f;
+    }
+
+    private IEnumerator FadeAnimation(
+        RectTransform target,
+        float duration)
+    {
+        if (target == null)
+            yield break;
+
+        CanvasGroup group = GetOrAddCanvasGroup(target.gameObject);
+
+        target.localScale = Vector3.one;
+        group.alpha = 0f;
+
+        if (duration <= 0f)
+        {
+            group.alpha = 1f;
+            yield break;
+        }
+
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+
+            group.alpha = Mathf.Clamp01(elapsed / duration);
+
+            yield return null;
+        }
+
+        group.alpha = 1f;
+    }
+
+    private CanvasGroup GetOrAddCanvasGroup(GameObject target)
+    {
+        CanvasGroup group = target.GetComponent<CanvasGroup>();
+
+        if (group == null)
+            group = target.AddComponent<CanvasGroup>();
+
+        return group;
     }
 
     private void OnBackToStartClicked()
@@ -120,6 +241,12 @@ public class RewardController : MonoBehaviour
         if (GameFlowManager.Instance != null)
         {
             GameFlowManager.Instance.BackToStart();
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[RewardController] GameFlowManager.Instance is null.",
+                this);
         }
     }
 }
