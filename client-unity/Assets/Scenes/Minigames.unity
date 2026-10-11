@@ -763,7 +763,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MinigameNavigationManager
   mainSceneName: MainForest
   mixFertilizerSceneName: MixFertilizer
-  mixFruitSceneName: MixFruit
+  mixFruitSceneName: MergeFruit
 --- !u!1 &877206778
 GameObject:
   m_ObjectHideFlags: 0
