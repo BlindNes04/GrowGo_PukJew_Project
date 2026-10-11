@@ -46,6 +46,9 @@ public class FruitMerger : MonoBehaviour
                     }
                 }
 
+                // 💡 เรียกเล่นเสียงตอนรวมร่างสำเร็จ (ก่อนบรรทัด Destroy)
+                if (AudioManager.instance != null) AudioManager.instance.PlayMerge();
+                
                 // ทำลายผลไม้ร่างเก่า
                 Destroy(gameObject);
                 Destroy(otherFruit.gameObject);

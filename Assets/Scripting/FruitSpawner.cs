@@ -101,6 +101,9 @@ public class FruitSpawner : MonoBehaviour
             isReadyToDrop = false;
             if (aimLine != null) aimLine.enabled = false; // ปิดเส้นทันทีที่กดปล่อย
 
+            // 💡 เรียกเล่นเสียงตอนปล่อยผลไม้
+            if (AudioManager.instance != null) AudioManager.instance.PlayDrop();
+            
             Rigidbody2D rb = currentFruit.GetComponent<Rigidbody2D>();
             rb.gravityScale = 1f;
 
