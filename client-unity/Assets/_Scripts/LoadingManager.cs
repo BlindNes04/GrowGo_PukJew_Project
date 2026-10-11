@@ -11,6 +11,11 @@ public class LoadingManager : MonoBehaviour
     [Header("Target Scene")]
     public string nextSceneName = "MainMenu"; // หลอดเต็มแล้วไปหน้า MainMenu เสมอ
 
+    void Awake()
+    {
+        Application.targetFrameRate = 60;
+    }
+
     void Start()
     {
         StartCoroutine(LoadTargetSceneAsync());
