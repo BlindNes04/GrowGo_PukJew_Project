@@ -1,0 +1,12 @@
+# Sensitive Data 
+.env
+
+# Python cache & Environment
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Model Files & Large Datasets
+*.joblib
+*.csv
