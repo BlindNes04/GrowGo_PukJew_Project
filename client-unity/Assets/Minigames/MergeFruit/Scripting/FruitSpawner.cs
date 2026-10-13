@@ -46,15 +46,8 @@ public class FruitSpawner : MonoBehaviour
                 Vector2 startPos = currentFruit.transform.position;
                 aimLine.SetPosition(0, startPos); // จุดเริ่มที่ผลไม้
 
-                // ปิดกรอบชนของผลไม้ที่ถืออยู่ชั่วคราว
-                //Collider2D col = currentFruit.GetComponent<Collider2D>();
-                //if (col != null) col.enabled = false;
-
                 // ยิงเรดาร์ลงด้านล่าง
                 RaycastHit2D hit = Physics2D.Raycast(startPos, Vector2.down);
-
-                // เปิดกรอบชนกลับคืน
-                //if (col != null) col.enabled = true;
 
                 // อัปเดตจุดปลายเส้น ให้หยุดตรงที่ชนพอดี
                 if (hit.collider != null)
@@ -101,6 +94,9 @@ public class FruitSpawner : MonoBehaviour
             isReadyToDrop = false;
             if (aimLine != null) aimLine.enabled = false; // ปิดเส้นทันทีที่กดปล่อย
 
+            // 💡 เรียกเล่นเสียงตอนปล่อยผลไม้ (แก้เป็น MFSoundManager)
+            if (MFSoundManager.instance != null) MFSoundManager.instance.PlayDrop();
+            
             Rigidbody2D rb = currentFruit.GetComponent<Rigidbody2D>();
             rb.gravityScale = 1f;
 

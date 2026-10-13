@@ -46,6 +46,9 @@ public class FruitMerger : MonoBehaviour
                     }
                 }
 
+                // 💡 เรียกเล่นเสียงตอนรวมร่างสำเร็จ (แก้เป็น MFSoundManager)
+                if (MFSoundManager.instance != null) MFSoundManager.instance.PlayMerge();
+                
                 // ทำลายผลไม้ร่างเก่า
                 Destroy(gameObject);
                 Destroy(otherFruit.gameObject);
