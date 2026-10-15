@@ -127,29 +127,29 @@ MonoBehaviour:
   m_FontFeatureTable:
     m_MultipleSubstitutionRecords: []
     m_LigatureSubstitutionRecords:
-    - m_ComponentGlyphIDs: 120000001000000013000000u
+    - m_ComponentGlyphIDs: 120000001000000013000000
       m_LigatureGlyphID: 127
-    - m_ComponentGlyphIDs: 120000001000000014000000u
+    - m_ComponentGlyphIDs: 120000001000000014000000
       m_LigatureGlyphID: 501
-    - m_ComponentGlyphIDs: 120000001000000015000000u
+    - m_ComponentGlyphIDs: 120000001000000015000000
       m_LigatureGlyphID: 126
-    - m_ComponentGlyphIDs: 120000001000000016000000u
+    - m_ComponentGlyphIDs: 120000001000000016000000
       m_LigatureGlyphID: 503
-    - m_ComponentGlyphIDs: 120000001000000017000000u
+    - m_ComponentGlyphIDs: 120000001000000017000000
       m_LigatureGlyphID: 507
-    - m_ComponentGlyphIDs: 120000001000000019000000u
+    - m_ComponentGlyphIDs: 120000001000000019000000
       m_LigatureGlyphID: 492
-    - m_ComponentGlyphIDs: 120000004201000013000000u
+    - m_ComponentGlyphIDs: 120000004201000013000000
       m_LigatureGlyphID: 127
-    - m_ComponentGlyphIDs: 120000004201000014000000u
+    - m_ComponentGlyphIDs: 120000004201000014000000
       m_LigatureGlyphID: 501
-    - m_ComponentGlyphIDs: 120000004201000015000000u
+    - m_ComponentGlyphIDs: 120000004201000015000000
       m_LigatureGlyphID: 126
-    - m_ComponentGlyphIDs: 120000004201000016000000u
+    - m_ComponentGlyphIDs: 120000004201000016000000
       m_LigatureGlyphID: 503
-    - m_ComponentGlyphIDs: 120000004201000017000000u
+    - m_ComponentGlyphIDs: 120000004201000017000000
       m_LigatureGlyphID: 507
-    - m_ComponentGlyphIDs: 120000004201000019000000u
+    - m_ComponentGlyphIDs: 120000004201000019000000
       m_LigatureGlyphID: 492
     m_GlyphPairAdjustmentRecords:
     - m_FirstAdjustmentRecord:
