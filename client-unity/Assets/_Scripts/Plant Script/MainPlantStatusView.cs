@@ -10,8 +10,9 @@ public class MainPlantStatusView : MonoBehaviour
     [Header("อ้างอิงข้อมูลพืช")]
     public PlantStatus plantStatus;
 
-    [Header("UI Text & Images")]
+    [Header("UI Text & Images (สเตตัสพืช)")]
     public TextMeshProUGUI plantNameText;
+    public string namePrefix = "ชื่อ: ";
     public Image moistureFillBar;          // หลอดสีฟ้า (Moisture_Fill)
     public Image nutrientsFillBar;         // หลอดสีแดง (Nutrient_Fill)
 
@@ -20,12 +21,14 @@ public class MainPlantStatusView : MonoBehaviour
     public GameObject cooldownWaterButtonObj; // ปุ่ม Cooldown_Water_Button
     public TextMeshProUGUI cooldownText;   // Text Cooldown
     public Button nourishButton;           // ปุ่ม Nourish_Button
+    public Button editNameButton;          // ปุ่ม NameEdit (ดินสอ)
 
     [Header("UI Background / Overlay ปิดหน้าต่าง")]
     public Button closeOverlayButton;      // ปุ่ม CloseOverlay (ล่องหน)
 
     [Header("UI Popups")]
-    public GameObject inventoryBoxUI;
+    public GameObject nourishPopupUI;      // 🌿 หน้า Pop-up บำรุงพืช (Nourish_Popup)
+    public RenamePlantPopup renamePlantPopup; // หน้า Pop-up เปลี่ยนชื่อ
 
     void Awake()
     {
@@ -40,12 +43,15 @@ public class MainPlantStatusView : MonoBehaviour
         if (nourishButton != null)
             nourishButton.onClick.AddListener(OnNourishButtonClicked);
 
+        if (editNameButton != null)
+            editNameButton.onClick.AddListener(OnEditNameButtonClicked);
+
         if (closeOverlayButton != null)
             closeOverlayButton.onClick.AddListener(CloseView);
 
         if (plantStatus == null)
         {
-            plantStatus = FindObjectOfType<PlantStatus>();
+            plantStatus = FindFirstObjectByType<PlantStatus>();
         }
 
         CloseView();
@@ -64,17 +70,17 @@ public class MainPlantStatusView : MonoBehaviour
         }
     }
 
-    // 💡 ฟังก์ชันเปิดหน้ารดน้ำ (กดทีเดียวติด ไม่ต้องใส่ parameter)
+    // 💡 ฟังก์ชันเปิดหน้ารดน้ำ
     public void OpenView()
     {
         if (plantStatus == null)
         {
-            plantStatus = FindObjectOfType<PlantStatus>();
+            plantStatus = FindFirstObjectByType<PlantStatus>();
         }
 
         if (plantStatus != null)
         {
-            plantStatus.LoadData(); // โหลดข้อมูลล่าสุดจาก PlayerPrefs
+            plantStatus.LoadData();
         }
 
         gameObject.SetActive(true);
@@ -94,21 +100,23 @@ public class MainPlantStatusView : MonoBehaviour
             closeOverlayButton.gameObject.SetActive(false);
     }
 
+    // 💡 อัปเดต UI แสดงผลหลอดความชุ่มชื้นและสารอาหาร
     public void UpdateUI()
     {
         if (plantStatus == null) return;
 
+        // 1. ชื่อพืช
         if (plantNameText != null)
-            plantNameText.text = plantStatus.plantName;
+            plantNameText.text = $"{namePrefix}{plantStatus.plantName}";
 
-        // คำนวณหลอดสีฟ้า (ความชุ่มชื้น)
+        // 2. หลอดความชุ่มชื้น (สีฟ้า)
         if (moistureFillBar != null)
         {
             float fillRatio = plantStatus.currentMoisture / plantStatus.maxMoisture;
             moistureFillBar.fillAmount = Mathf.Clamp01(fillRatio);
         }
 
-        // คำนวณหลอดสีแดง (สารอาหาร)
+        // 3. หลอดสารอาหาร (สีแดง)
         if (nutrientsFillBar != null)
         {
             float fillRatio = plantStatus.currentNutrients / plantStatus.maxNutrients;
@@ -157,14 +165,26 @@ public class MainPlantStatusView : MonoBehaviour
         UpdateUI();
     }
 
+    // 🌿 เมื่อกดปุ่ม "บำรุง"
     private void OnNourishButtonClicked()
     {
         if (MAudioManager.instance != null)
             MAudioManager.instance.PlayClickSFX();
 
-        if (inventoryBoxUI != null)
+        if (nourishPopupUI != null)
         {
-            inventoryBoxUI.SetActive(true);
+            nourishPopupUI.SetActive(true);
+        }
+    }
+
+    private void OnEditNameButtonClicked()
+    {
+        if (MAudioManager.instance != null)
+            MAudioManager.instance.PlayClickSFX();
+
+        if (renamePlantPopup != null && plantStatus != null)
+        {
+            renamePlantPopup.OpenPopup(plantStatus);
         }
     }
 }

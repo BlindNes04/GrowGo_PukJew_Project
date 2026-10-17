@@ -34,10 +34,16 @@ public class MCController : MonoBehaviour
 
     public void UpdateCharacterVisual()
     {
+        SetStageIndex(currentLevel - 1);
+    }
+
+    // 💡 สลับรูปภาพ ตำแหน่ง และสเกลตาม Index ของร่าง (0 ถึง 4)
+    public void SetStageIndex(int index)
+    {
         if (characterImage == null || stages == null || stages.Length == 0) return;
 
-        int index = Mathf.Clamp(currentLevel - 1, 0, stages.Length - 1);
-        StageData data = stages[index];
+        int clampedIndex = Mathf.Clamp(index, 0, stages.Length - 1);
+        StageData data = stages[clampedIndex];
 
         if (data.sprite != null)
         {
@@ -56,6 +62,13 @@ public class MCController : MonoBehaviour
                 characterImage.SetNativeSize();
             }
         }
+    }
+
+    // 💡 สั่งเปลี่ยนร่างตาม Level (1-5)
+    public void SetStage(int stage)
+    {
+        currentLevel = stage;
+        UpdateCharacterVisual();
     }
 
     public void EvolveNextStage()
