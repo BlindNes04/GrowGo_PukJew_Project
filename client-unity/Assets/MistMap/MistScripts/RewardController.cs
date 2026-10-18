@@ -236,21 +236,17 @@ public class RewardController : MonoBehaviour
         return group;
     }
 
-private void OnBackToStartClicked()
-{
-    // เล่นเสียง SFX ปุ่มกด
-    if (MAudioManager.instance != null)
+    private void OnBackToStartClicked()
     {
-        MAudioManager.instance.PlayClickSFX();
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.BackToStart();
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[RewardController] GameFlowManager.Instance is null.",
+                this);
+        }
     }
-
-    // สั่งปิด Popup ตัวเอง
-    gameObject.SetActive(false);
-
-    // แจ้งให้ BeachShellManager รับรู้ว่าเปิดของเสร็จแล้ว ให้เริ่มนับ Cooldown
-    if (BeachShellManager.Instance != null)
-    {
-        BeachShellManager.Instance.OnRewardClaimed();
-    }
-}
 }

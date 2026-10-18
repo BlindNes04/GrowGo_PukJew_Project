@@ -5323,7 +5323,7 @@ MonoBehaviour:
   quoteShowDuration: 2
   quoteFadeDuration: 0.8
   maxStamina: 30
-  searchCost: 0
+  searchCost: 10
   staminaText: {fileID: 444864411}
 --- !u!4 &1511670912
 Transform:
@@ -5633,49 +5633,36 @@ MonoBehaviour:
     moveDistance: 10
     moveSpeed: 0.6
     timeOffset: 0
-    pushDistanceX: -200
     initialLocalPos: {x: 0, y: 0, z: 0}
     cachedImage: {fileID: 0}
     cachedSprite: {fileID: 0}
-    isDispersed: 0
-    pushOffset: 0
   - fogName: 2
     fogObject: {fileID: 654469930}
     moveDistance: 15
     moveSpeed: 0.6
     timeOffset: 1
-    pushDistanceX: -200
     initialLocalPos: {x: 0, y: 0, z: 0}
     cachedImage: {fileID: 0}
     cachedSprite: {fileID: 0}
-    isDispersed: 0
-    pushOffset: 0
   - fogName: 3
     fogObject: {fileID: 749716900}
     moveDistance: 20
     moveSpeed: 0.6
     timeOffset: 2
-    pushDistanceX: -200
     initialLocalPos: {x: 0, y: 0, z: 0}
     cachedImage: {fileID: 0}
     cachedSprite: {fileID: 0}
-    isDispersed: 0
-    pushOffset: 0
   - fogName: 4
     fogObject: {fileID: 1491122152}
     moveDistance: 25
     moveSpeed: 0.65
     timeOffset: 3
-    pushDistanceX: -200
     initialLocalPos: {x: 0, y: 0, z: 0}
     cachedImage: {fileID: 0}
     cachedSprite: {fileID: 0}
-    isDispersed: 0
-    pushOffset: 0
   minAlpha: 0
   maxAlpha: 0.3
   alphaPulseSpeed: 1.2
-  disperseDuration: 1.5
 --- !u!4 &1679652472
 Transform:
   m_ObjectHideFlags: 0

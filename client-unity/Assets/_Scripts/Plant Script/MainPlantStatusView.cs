@@ -13,6 +13,7 @@ public class MainPlantStatusView : MonoBehaviour
     [Header("UI Text & Images (สเตตัสพืช)")]
     public TextMeshProUGUI plantNameText;
     public string namePrefix = "ชื่อ: ";
+    public TextMeshProUGUI stageNamePillText; // 👈 ลาก Text ใน Pill สีเทา/ส้ม ใต้ชื่อพืชมาใส่ช่องนี้
     public Image moistureFillBar;          // หลอดสีฟ้า (Moisture_Fill)
     public Image nutrientsFillBar;         // หลอดสีแดง (Nutrient_Fill)
 
@@ -100,28 +101,35 @@ public class MainPlantStatusView : MonoBehaviour
             closeOverlayButton.gameObject.SetActive(false);
     }
 
-    // 💡 อัปเดต UI แสดงผลหลอดความชุ่มชื้นและสารอาหาร
+    // 💡 อัปเดต UI แสดงผลหลอดความชุ่มชื้น สารอาหาร และชื่อร่างใน Pill
     public void UpdateUI()
     {
         if (plantStatus == null) return;
 
-        // 1. ชื่อพืช
+        // 1. ชื่อตั้งของพืช
         if (plantNameText != null)
             plantNameText.text = $"{namePrefix}{plantStatus.plantName}";
 
-        // 2. หลอดความชุ่มชื้น (สีฟ้า)
+        // 2. ชื่อร่างใน Pill ใต้ชื่อพืช (เช่น มะเขือเทศนางฟ้า, หน่อกะทิน้อย)
+        if (stageNamePillText != null)
+            stageNamePillText.text = plantStatus.GetCurrentStageName();
+
+        // 3. หลอดความชุ่มชื้น (สีฟ้า)
         if (moistureFillBar != null)
         {
             float fillRatio = plantStatus.currentMoisture / plantStatus.maxMoisture;
             moistureFillBar.fillAmount = Mathf.Clamp01(fillRatio);
         }
 
-        // 3. หลอดสารอาหาร (สีแดง)
+        // 4. หลอดสารอาหาร (สีแดง)
         if (nutrientsFillBar != null)
         {
             float fillRatio = plantStatus.currentNutrients / plantStatus.maxNutrients;
             nutrientsFillBar.fillAmount = Mathf.Clamp01(fillRatio);
         }
+
+        // 5. สั่งซิงค์ภาพพืชบนแท่นหินให้ตรงกับร่างปัจจุบัน
+        plantStatus.SyncCharacterVisual();
     }
 
     private void UpdateCooldownUI()

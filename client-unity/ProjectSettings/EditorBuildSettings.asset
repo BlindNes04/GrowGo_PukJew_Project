@@ -34,7 +34,7 @@ EditorBuildSettings:
     guid: 12d1a6cffe7a34987ab75cf652ee2cd7
   - enabled: 1
     path: Assets/MistMap/Scenes/Mist_Island.unity
-    guid: 92848667fd65041819b53a36797ef0b1
+    guid: 0fc255762462a48eeacd5f3a62d06481
   - enabled: 1
     path: Assets/Scenes/Minigames/MergeFruit.unity
     guid: 010c53a16120647dcbbbf0f2559ec3df
