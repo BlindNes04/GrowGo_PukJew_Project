@@ -176,7 +176,7 @@ public class SupabaseManager : MonoBehaviour
         string cleanPlantId = plant.playerPlantId.Trim();
         string endpoint = $"{supabaseUrl}/rest/v1/player_plant?player_plant_id=eq.{cleanPlantId}";
 
-        // 💡 จัดรูปแบบเวลา Timestamp ให้เป็น null ชัดเจนหากไม่มีข้อมูล เพื่อแก้ Error 22007
+        // จัดรูปแบบเวลา Timestamp ให้เป็น null ชัดเจนหากไม่มีข้อมูล เพื่อแก้ Error 22007
         string lastWateredStr = string.IsNullOrEmpty(plant.lastWateredAt) ? "null" : $"\"{plant.lastWateredAt}\"";
         string sickUntilStr = string.IsNullOrEmpty(plant.sickUntil) ? "null" : $"\"{plant.sickUntil}\"";
         string plantedAtStr = string.IsNullOrEmpty(plant.plantedAt) ? "null" : $"\"{plant.plantedAt}\"";

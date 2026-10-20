@@ -130,16 +130,16 @@ public class PlantStatus : MonoBehaviour
         result = DateTime.MinValue;
         if (string.IsNullOrWhiteSpace(timeStr)) return false;
 
-        string cleanTime = timeStr.Replace("T", " ").Replace("Z", "");
-        if (cleanTime.Contains("+")) cleanTime = cleanTime.Split('+')[0];
-        if (cleanTime.Contains(".")) cleanTime = cleanTime.Split('.')[0];
-
-        return DateTime.TryParse(
-            cleanTime.Trim(), 
-            System.Globalization.CultureInfo.InvariantCulture, 
-            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, 
-            out result
-        );
+        if (DateTimeOffset.TryParse(timeStr, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTimeOffset dto))
+        {
+            result = dto.UtcDateTime; // แปลงเป็น UTC เสมอเพื่อนำไปลบกับ DateTime.UtcNow ในเกม
+            if (result.Year > 2400)
+            {
+                result = result.AddYears(-543); // แก้ปัญหาปีพ.ศ. > 2400 ให้เป็น ค.ศ.
+            }
+            return true;
+        }
+        return false;
     }
 
     private IEnumerator LoadAllDataFromSupabaseRoutine()
@@ -428,7 +428,7 @@ public class PlantStatus : MonoBehaviour
     {
         if (!CanWater()) return;
 
-        lastWateredAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+        lastWateredAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         currentMoisture = maxMoisture;
 
         int finalExp = Mathf.RoundToInt(baseExpFromWater * expMultiplier);
