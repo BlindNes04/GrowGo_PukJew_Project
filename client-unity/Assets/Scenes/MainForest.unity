@@ -729,7 +729,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 165794293}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 173785470}
+        m_TargetAssemblyTypeName: SceneNavigator, Assembly-CSharp
+        m_MethodName: ChangeScene
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: AddFriend
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &165794293
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -877,6 +889,7 @@ GameObject:
   - component: {fileID: 173785468}
   - component: {fileID: 173785467}
   - component: {fileID: 173785469}
+  - component: {fileID: 173785470}
   m_Layer: 5
   m_Name: MoreMenuPanel
   m_TagString: Untagged
@@ -969,6 +982,19 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &173785470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 173785464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fe963563f2e48248c1b0fb64283ef8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneNavigator
+  mainSceneName: MainForest
 --- !u!1 &177153531
 GameObject:
   m_ObjectHideFlags: 0
@@ -4407,7 +4433,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SupabaseManager
   supabaseUrl: https://xwvqxyeybgwiaxpodnaq.supabase.co
   supabaseAnonKey: sb_publishable_14M9lB3dIwbc-eOX-LbK-w_A-3mv1UR
-  currentUserId: USER_003
+  currentUserId: USER_001
 --- !u!1 &662792952
 GameObject:
   m_ObjectHideFlags: 0
@@ -11271,8 +11297,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 30, y: -220}
-  m_SizeDelta: {x: 600, y: 600}
+  m_AnchoredPosition: {x: 0, y: -300}
+  m_SizeDelta: {x: 450, y: 450}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1465075025
 MonoBehaviour:
@@ -11294,7 +11320,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 897900305, guid: 17b46c210bb864bc483272b71bbbbd9a, type: 3}
+  m_Sprite: {fileID: 332223796, guid: c4e3d7c62684045e7836520080ec7678, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -11402,22 +11428,22 @@ MonoBehaviour:
   - stageId: STAGE_ML_01
     stageName: "\u0E40\u0E21\u0E25\u0E48\u0E2D\u0E19\u0E19\u0E49\u0E2D\u0E22"
     sprite: {fileID: 332223796, guid: c4e3d7c62684045e7836520080ec7678, type: 3}
-    anchoredPosition: {x: 0, y: -250}
-    customSize: {x: 550, y: 550}
+    anchoredPosition: {x: 0, y: -300}
+    customSize: {x: 450, y: 450}
   - stageId: STAGE_ML_02
     stageName: "\u0E40\u0E16\u0E32\u0E40\u0E21\u0E25\u0E48\u0E2D\u0E19\u0E2D\u0E48\u0E2D\u0E19"
     sprite: {fileID: 897900305, guid: 17b46c210bb864bc483272b71bbbbd9a, type: 3}
-    anchoredPosition: {x: 30, y: -220}
-    customSize: {x: 600, y: 600}
+    anchoredPosition: {x: 20, y: -260}
+    customSize: {x: 550, y: 550}
   - stageId: STAGE_ML_03
     stageName: "\u0E40\u0E21\u0E25\u0E48\u0E2D\u0E19\u0E1C\u0E25\u0E42\u0E15"
     sprite: {fileID: 897900305, guid: 17b46c210bb864bc483272b71bbbbd9a, type: 3}
-    anchoredPosition: {x: 15, y: -180}
-    customSize: {x: 700, y: 700}
+    anchoredPosition: {x: 15, y: -220}
+    customSize: {x: 650, y: 650}
   - stageId: STAGE_ML_EVO_FAIRY
     stageName: "\u0E40\u0E21\u0E25\u0E48\u0E2D\u0E19\u0E40\u0E23\u0E34\u0E07\u0E23\u0E30\u0E1A\u0E33"
     sprite: {fileID: -1023163128, guid: da1ad6358a90e4b40ad8b9ad06afee34, type: 3}
-    anchoredPosition: {x: 0, y: -100}
+    anchoredPosition: {x: 20, y: -100}
     customSize: {x: 950, y: 950}
   - stageId: STAGE_ML_EVO_ROT
     stageName: "\u0E40\u0E21\u0E25\u0E48\u0E2D\u0E19\u0E40\u0E19\u0E48\u0E32\u0E2B\u0E19\u0E32\u0E21"
