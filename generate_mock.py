@@ -9,22 +9,22 @@ n_per_group = 500
 personas_config = {
     'Explorer': {
         'rates': {
-            'craft_fertilizer': 50,
+            'craft_fertilizer': 65,
             'play_fruit_merge': 15,
-            'play_block_blast': 12,
+            'play_block_blast': 15,
             'explore_island': 125,
-            'collect_species': 12,
+            'collect_species': 15,
             'submit_tree_cert': 0,
-            'water_friend_tree': 15
+            'water_friend_tree': 20
         }
     },
     'Guardian': {
         'rates': {
-            'craft_fertilizer': 15,
-            'play_fruit_merge': 10,
+            'craft_fertilizer': 20,
+            'play_fruit_merge': 15,
             'play_block_blast': 15,
             'explore_island': 20,
-            'collect_species': 3,
+            'collect_species': 8,
             'submit_tree_cert': 45,
             'water_friend_tree': 20
         }
@@ -32,34 +32,34 @@ personas_config = {
     'Helper': {
         'rates': {
             'craft_fertilizer': 20,
-            'play_fruit_merge': 12,
-            'play_block_blast': 85,
-            'explore_island': 25,
-            'collect_species': 4,
+            'play_fruit_merge': 25,
+            'play_block_blast': 25,
+            'explore_island': 20,
+            'collect_species': 8,
             'submit_tree_cert': 0,
-            'water_friend_tree': 120
+            'water_friend_tree': 90
         }
     },
     'Collector': {
         'rates': {
-            'craft_fertilizer': 85,
-            'play_fruit_merge': 75,
-            'play_block_blast': 18,
-            'explore_island': 60,
-            'collect_species': 36,
-            'submit_tree_cert': 5,
+            'craft_fertilizer': 75,
+            'play_fruit_merge': 65,
+            'play_block_blast': 35,
+            'explore_island': 85,
+            'collect_species': 35,
+            'submit_tree_cert': 15,
             'water_friend_tree': 25
         }
     },
     'Casual': {
         'rates': {
-            'craft_fertilizer': 8,
-            'play_fruit_merge': 6,
-            'play_block_blast': 5,
-            'explore_island': 10,
-            'collect_species': 2,
+            'craft_fertilizer': 25,
+            'play_fruit_merge': 30,
+            'play_block_blast': 30,
+            'explore_island': 35,
+            'collect_species': 10,
             'submit_tree_cert': 0,
-            'water_friend_tree': 5
+            'water_friend_tree': 20
         }
     }
 }
@@ -81,19 +81,18 @@ user_counter = 1
 for persona_name, cfg in personas_config.items():
     for _ in range(n_per_group):
         uid = f"MCK_{user_counter:04d}"
-        assigned_buddy = np.random.choice(BUDDY_LIST)
-        tag = f"#{user_counter:04d}"
 
         users.append({
             'user_id': uid,
-            'user_tag': tag,
-            'buddy_id': assigned_buddy,
+            'user_tag': f"#{user_counter:04d}",
+            'buddy_id': np.random.choice(BUDDY_LIST),
             'cluster_id': None,
             'username': f"user_{user_counter:04d}",
             'email': f"user_{user_counter:04d}@example.com",
             'password': "hashed_password_placeholder",
             'level': int(np.random.randint(1, 50)),
             'total_exp': int(np.random.randint(0, 10000)),
+            'total_relationships': int(np.random.randint(0, 500)),
             'flower_points': int(np.random.randint(0, 500)),
             'green_points': int(np.random.randint(0, 500)),
             'created_at': start_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -120,7 +119,7 @@ for persona_name, cfg in personas_config.items():
                 log_counter += 1
 
 # Export เป็น CSV
-pd.DataFrame(users).to_csv('users.csv', index=False)
+pd.DataFrame(users).to_csv('user.csv', index=False)
 pd.DataFrame(logs).sample(frac=1, random_state=42).reset_index(drop=True).to_csv('behaviour_log.csv', index=False)
 
-print("สร้างและบันทึกไฟล์ users.csv และ behavior_log.csv เรียบร้อย")
+print("สร้างและบันทึกไฟล์ user.csv และ behavior_log.csv เรียบร้อย")

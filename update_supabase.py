@@ -1,6 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
+import joblib
 from sqlalchemy import create_engine, text
 
 import os
@@ -58,31 +57,40 @@ features = [
     'friend_water_assists'
 ]
 
-# เติมคอลัมน์กิจกรรมที่ยังไม่มีข้อมูลใน DB ให้เป็น 0
 for f in features:
     if f not in df_pivot.columns:
         df_pivot[f] = 0
 
 df_features = df_pivot[features].copy()
 
-# 4. MODEL PREDICTION (K-MEANS k=5)
-print("กำลังคำนวณจัดกลุ่ม K-Means Clustering (k=5)")
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(df_features)
+df_features['total_acts'] = df_features[features].sum(axis=1)
+MIN_THRESHOLD = 10
+is_new_player = df_features['total_acts'] < MIN_THRESHOLD
 
-kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
-df_features['cluster_num'] = kmeans.fit_predict(X_scaled)
+# 4. MODEL PREDICTION (LOAD FROM JOBLIB)
+print("กำลังโหลดโมเดลและจัดกลุ่มผู้เล่น...")
+try:
+    scaler = joblib.load('scaler.joblib')
+    kmeans = joblib.load('kmeans_model.joblib')
+
+    X_scaled = scaler.transform(df_features[features])
+    df_features['cluster_num'] = kmeans.predict(X_scaled)
+
+except Exception as e:
+    print(f"เกิดข้อผิดพลาดในการโหลดโมเดล joblib: {e}")
+    exit()
 
 # 5. MAP NUMERIC CLUSTER TO SUPABASE CLUSTER_ID
 cluster_id_mapping = {
     0: 'CLS_GUARDIAN',
-    1: 'CLS_COLLECTOR',
+    1: 'CLS_CASUAL',
     2: 'CLS_EXPLORER',
-    3: 'CLS_HELPER',
-    4: 'CLS_CASUAL'     
+    3: 'CLS_COLLECTOR',
+    4: 'CLS_HELPER'     
 }
 
 df_features['cluster_id'] = df_features['cluster_num'].map(cluster_id_mapping)
+df_features.loc[is_new_player, 'cluster_id'] = 'CLS_NEW'
 result_df = df_features[['cluster_id']].reset_index()
 
 # 6. UPDATE RESULTS BACK TO 'user' TABLE

@@ -1,6 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -59,6 +60,11 @@ df_features['cluster_id'] = kmeans.fit_predict(X_scaled)
 
 cluster_means = df_features.groupby('cluster_id')[features].mean().round(1)
 
+# Save Model
+joblib.dump(scaler, 'scaler.joblib')
+joblib.dump(kmeans, 'kmeans_model.joblib')
+print("บันทึก scaler.joblib และ kmeans_model.joblib เรียบร้อย")
+
 # Plot Evaluation Graph (Elbow & Silhouette)
 inertias = []
 sil_scores = []
@@ -91,10 +97,10 @@ plt.show()
 # Heatmap Visualization
 cluster_names = {
     0: 'Guardian',
-    1: 'Collector',
-    2: 'Explorer',
-    3: 'Helper',
-    4: 'Casual'
+    1: 'Casual',     
+    2: 'Explorer',  
+    3: 'Collector',  
+    4: 'Helper'      
 }
 
 cluster_means_named = cluster_means.rename(index=cluster_names)
