@@ -8,35 +8,39 @@ using TMPro;
 [System.Serializable]
 public class BeachItemData
 {
-    public string itemId;   // ID ไอเทมไว้ส่งเข้า DB (เช่น "beach_sand_01", "shell_01")
+    public string itemId;   // ID ไอเทมตรงตาม Supabase
     public string itemName; // ชื่อภาษาไทย
     public Sprite itemIcon; // รูปไอเทม
+    
+    [Header("Drop Rate Settings")]
+    [Tooltip("โอกาสดรอป เช่น 0.3 = 30%, 0.25 = 25%")]
+    public float dropRate = 0.25f; 
 }
 
+// ==================== BeachShellManager Class ====================
 public class BeachShellManager : MonoBehaviour
 {
     public static BeachShellManager Instance;
 
     [Header("หอยทั้ง 4 ตำแหน่ง")]
-    public Button[] shellButtons; // ลาก Shell 01 - 04 มาใส่
+    public Button[] shellButtons; 
 
     [Header("ระบบ Reward Popup")]
-    public RewardController rewardController; // ลาก reward component มาใส่
-    public BeachItemData[] beachItems; // รายการไอเทมหาดทราย
+    public RewardController rewardController; 
+    public BeachItemData[] beachItems; 
 
     [Header("ตั้งค่า Cooldown (วินาที)")]
-    public float cooldownSeconds = 10f; // ตั้งเวลารอรีไอเทม (ทดสอบใส่ 10 วินาทีก่อนได้)
-    public TextMeshProUGUI cooldownText; // UI แสดงเวลาถอยหลัง (ถ้ามี หรือปล่อย None ไว้ได้)
+    public float cooldownSeconds = 10f; 
+    public TextMeshProUGUI cooldownText; 
 
     private Button activeShell;
     private Coroutine shakeCoroutine;
     private Quaternion activeShellOriginalRotation;
     private bool isCooldown = false;
-    private BeachItemData currentEarnedItem;
 
     void Awake()
     {
-        Instance = this;
+        if (Instance == null) Instance = this;
     }
 
     void Start()
@@ -44,7 +48,19 @@ public class BeachShellManager : MonoBehaviour
         CheckCooldownState();
     }
 
-    // 1. ตรวจสอบสถานะเวลา Cooldown
+    [ContextMenu("Clear Cooldown PlayerPrefs")]
+    public void ClearCooldownPrefs()
+    {
+        PlayerPrefs.DeleteKey("Beach_LastClaimTime");
+        PlayerPrefs.Save();
+        Debug.Log("[BeachShellManager] 🟢 Cleared Beach_LastClaimTime PlayerPrefs!");
+    }
+
+    public void RespawnShells()
+    {
+        SetupNewRound();
+    }
+
     private void CheckCooldownState()
     {
         string lastClaimTimeString = PlayerPrefs.GetString("Beach_LastClaimTime", "");
@@ -57,48 +73,43 @@ public class BeachShellManager : MonoBehaviour
 
             if (timePassed.TotalSeconds < cooldownSeconds)
             {
-                // ยังอยู่ในช่วง Cooldown
                 float remainingTime = (float)(cooldownSeconds - timePassed.TotalSeconds);
+                Debug.Log($"[BeachShellManager] ⏳ Game is in Cooldown! Remaining: {remainingTime:F1}s");
                 StartCoroutine(StartCooldownTimer(remainingTime));
                 return;
             }
         }
 
-        // ถ้าไม่มี Cooldown ค้างอยู่ ให้เริ่มสุ่มหอยรอบใหม่ทันที
         SetupNewRound();
     }
 
-    // 2. เริ่มรอบใหม่: โชว์หอยทั้งหมด + สุ่มหอย 1 ตัวให้สั่น
     public void SetupNewRound()
     {
         isCooldown = false;
         if (cooldownText != null) cooldownText.gameObject.SetActive(false);
 
-        // แสดงหอยทุกตัวกลับมาที่เดิม
+        if (shellButtons == null || shellButtons.Length == 0) return;
+
         foreach (Button btn in shellButtons)
         {
             if (btn != null)
             {
                 btn.gameObject.SetActive(true);
                 btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnShellClicked(btn));
             }
         }
 
-        if (shellButtons.Length == 0) return;
-
-        // สุ่มเลือกหอย 1 ตัว
         int randomIndex = UnityEngine.Random.Range(0, shellButtons.Length);
         activeShell = shellButtons[randomIndex];
         activeShellOriginalRotation = activeShell.transform.localRotation;
 
-        activeShell.onClick.AddListener(() => OnShellClicked(activeShell));
-
-        // เล่น Animation เขย่า
         if (shakeCoroutine != null) StopCoroutine(shakeCoroutine);
         shakeCoroutine = StartCoroutine(PlayShakeAnimation(activeShell.transform));
+
+        Debug.Log($"[BeachShellManager] 🟢 New round ready! Shaking shell index: {randomIndex}");
     }
 
-    // 3. Animation เขย่าหอย
     private IEnumerator PlayShakeAnimation(Transform targetTransform)
     {
         Quaternion originalRot = targetTransform.localRotation;
@@ -123,57 +134,93 @@ public class BeachShellManager : MonoBehaviour
         }
     }
 
-    // 4. เมื่อผู้เล่นกดที่หอย
     private void OnShellClicked(Button clickedShell)
     {
-        if (isCooldown) return;
+        Debug.Log($"[BeachShellManager] 👆 Shell clicked: {clickedShell.name} | isCooldown: {isCooldown}");
+
+        if (isCooldown)
+        {
+            Debug.LogWarning("[BeachShellManager] ⚠️ Click ignored: Game is currently on cooldown!");
+            return;
+        }
 
         if (shakeCoroutine != null) StopCoroutine(shakeCoroutine);
-        clickedShell.transform.localRotation = activeShellOriginalRotation;
+        if (activeShell != null) activeShell.transform.localRotation = activeShellOriginalRotation;
 
-        if (MAudioManager.instance != null)
+        if (AudioManager.Instance != null)
         {
-            MAudioManager.instance.PlayClickSFX();
+            AudioManager.Instance.PlaySFX(AudioManager.Instance.clickSFX);
         }
 
-        // สุ่มไอเทมรางวัล
-        if (beachItems.Length > 0 && rewardController != null)
+        if (beachItems != null && beachItems.Length > 0)
         {
-            int randomItemIndex = UnityEngine.Random.Range(0, beachItems.Length);
-            currentEarnedItem = beachItems[randomItemIndex];
+            // 🎲 สุ่มไอเทมตามเปอร์เซ็นต์ Drop Rate (Weighted Random)
+            BeachItemData currentEarnedItem = GetRandomItemByDropRate();
 
-            ItemData rewardData = new ItemData
+            if (currentEarnedItem != null)
             {
-                itemName = currentEarnedItem.itemName,
-                itemIcon = currentEarnedItem.itemIcon
-            };
+                Debug.Log($"[BeachShellManager] 🎁 Earned Item: {currentEarnedItem.itemName} ({currentEarnedItem.itemId}) | Drop Rate: {currentEarnedItem.dropRate * 100}%");
 
-            // เปิด Popup รางวัล
-            rewardController.OpenRewardWindow(rewardData);
+                ItemData rewardData = new ItemData
+                {
+                    itemId = currentEarnedItem.itemId,
+                    itemName = currentEarnedItem.itemName,
+                    itemIcon = currentEarnedItem.itemIcon
+                };
+
+                if (rewardController != null)
+                {
+                    rewardController.OpenRewardWindow(rewardData);
+                }
+                else
+                {
+                    Debug.LogError("[BeachShellManager] 🔴 rewardController is null! Check Inspector.");
+                }
+            }
         }
 
-        // ซ่อนหอยตัวที่ถูกกดไป
         clickedShell.gameObject.SetActive(false);
     }
 
-    // 5. ฟังก์ชันนี้จะถูกเรียกเมื่อผู้เล่นกดปิด Popup รางวัล
-    public void OnRewardClaimed()
+    // 🎲 ฟังก์ชันสุ่ม Weighted Random
+    private BeachItemData GetRandomItemByDropRate()
     {
-        // 5.1 เพิ่มไอเทมเข้า Inventory (ตอนนี้ทำเป็น Mock ไว้ก่อน)
-        if (currentEarnedItem != null)
+        float totalWeight = 0f;
+
+        // คำนวณผลรวมน้ำหนักทั้งหมด
+        foreach (var item in beachItems)
         {
-            AddItemToInventoryMock(currentEarnedItem.itemId, 1);
+            totalWeight += item.dropRate;
         }
 
-        // 5.2 บันทึกเวลาที่เริ่ม Cooldown
+        if (totalWeight <= 0f) return beachItems[0];
+
+        // สุ่มตัวเลข 0 ถึง totalWeight
+        float randomValue = UnityEngine.Random.Range(0f, totalWeight);
+        float currentSum = 0f;
+
+        // สุ่มเทียบช่วงโอกาส
+        foreach (var item in beachItems)
+        {
+            currentSum += item.dropRate;
+            if (randomValue <= currentSum)
+            {
+                return item;
+            }
+        }
+
+        return beachItems[0];
+    }
+
+    public void OnRewardClaimed()
+    {
         PlayerPrefs.SetString("Beach_LastClaimTime", DateTime.UtcNow.Ticks.ToString());
         PlayerPrefs.Save();
 
-        // 5.3 เริ่มนับเวลาถอยหลัง
+        Debug.Log("[BeachShellManager] 🟢 Reward claimed! Cooldown started.");
         StartCoroutine(StartCooldownTimer(cooldownSeconds));
     }
 
-    // 6. นับเวลา Cooldown ถอยหลัง
     private IEnumerator StartCooldownTimer(float duration)
     {
         isCooldown = true;
@@ -194,16 +241,6 @@ public class BeachShellManager : MonoBehaviour
             yield return null;
         }
 
-        // พอเวลาหมด ให้เปิดรอบสุ่มใหม่ หอยจะกลับมาโชว์ครบเหมือนเดิม
         SetupNewRound();
-    }
-
-    // 💡 ฟังก์ชันจำลองการยิงเข้า Inventory (เตรียมไว้เชื่อม Supabase พรุ่งนี้)
-    private void AddItemToInventoryMock(string itemId, int amount)
-    {
-        Debug.Log($"[Mock Inventory] เพิ่มไอเทมสำเร็จ: ID={itemId}, จำนวน={amount}");
-        
-        // TODO (พรุ่งนี้ตอนต่อ Supabase):
-        // SupabaseClient.From<UserInventory>().Insert(new UserInventory { ItemId = itemId, Amount = amount });
     }
 }

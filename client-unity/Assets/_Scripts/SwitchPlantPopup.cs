@@ -10,7 +10,7 @@ public class SwitchPlantPopup : MonoBehaviour
     [System.Serializable]
     public class SpeciesIconData
     {
-        [Tooltip("ใส่คีย์ เช่น TM, CC, SPEC_TOMATO, SPEC_COCONUT")]
+        [Tooltip("ใส่คีย์ ให้ตรงกับ stageId เช่น STAGE_CC_01, STAGE_TM_01, STAGE_ML_01, STAGE_CH_01")]
         public string speciesKey; 
         public Sprite iconSprite; 
     }
@@ -37,13 +37,11 @@ public class SwitchPlantPopup : MonoBehaviour
             plantStatus = FindFirstObjectByType<PlantStatus>();
     }
 
-    // 💡 เมื่อเปิด Pop-up (Active) ให้ทำงานยิงดึงข้อมูลแค่จุดนี้จุดเดียว
     private void OnEnable()
     {
         RefreshPlantGrid();
     }
 
-    // 🚀 สั่งเปิดหน้าต่างสลับพืช (ให้ OnEnable ทำงานดึงข้อมูลเอง ไม่ต้องสั่งซ้ำ)
     public void OpenPopup()
     {
         gameObject.SetActive(true);
@@ -54,19 +52,17 @@ public class SwitchPlantPopup : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    // 🟢 ดึงเฉพาะพืชที่มีในตาราง player_plant มาแสดงเป็นการ์ดเลือกสลับเลี้ยง
     public void RefreshPlantGrid()
     {
-        // 💡 หยุด Coroutine เก่าทั้งหมดป้องกันการยิง API ซ้ำซ้อน
         StopAllCoroutines();
 
-        // 1. เคลียร์การ์ดเก่าออกให้หมดก่อน
         foreach (var card in spawnedCards)
         {
             if (card != null) Destroy(card);
         }
         spawnedCards.Clear();
 
-        // 2. ดึงข้อมูลพืชจาก Supabase
         if (SupabaseManager.Instance != null)
         {
             StartCoroutine(SupabaseManager.Instance.GetPlayerPlantData(
@@ -81,10 +77,9 @@ public class SwitchPlantPopup : MonoBehaviour
                         {
                             CreatePlantCard(plantData);
                         }
-
-                        // บังคับให้ Grid Layout Group จัดตำแหน่งให้สวยงาม
-                        StartCoroutine(RebuildLayoutRoutine());
                     }
+
+                    StartCoroutine(RebuildLayoutRoutine());
                 },
                 onError: (err) => Debug.LogError($"[SwitchPlant] 🔴 ดึงรายการพืชไม่สำเร็จ: {err}")
             ));
@@ -99,7 +94,6 @@ public class SwitchPlantPopup : MonoBehaviour
         newCard.transform.localScale = Vector3.one;
         spawnedCards.Add(newCard);
 
-        // เปลี่ยนรูปไอคอนในช่อง Seed
         Image iconImage = GetPlantIconImage(newCard);
         if (iconImage != null)
         {
@@ -111,7 +105,6 @@ public class SwitchPlantPopup : MonoBehaviour
             }
         }
 
-        // ตั้งค่าปุ่มกดเลือกพืช
         Button cardButton = newCard.GetComponent<Button>();
         if (cardButton == null) cardButton = newCard.GetComponentInChildren<Button>();
 
@@ -158,12 +151,11 @@ public class SwitchPlantPopup : MonoBehaviour
 
             string key = data.speciesKey.ToUpper();
 
-            if (upperStage.Contains(key) || 
-               (key.Contains("TOMATO") && upperStage.Contains("TM")) ||
-               (key.Contains("COCONUT") && upperStage.Contains("CC")))
-            {
-                return data.iconSprite;
-            }
+            if (upperStage == key || upperStage.Contains(key)) return data.iconSprite;
+            if ((key.Contains("TOMATO") || key.Contains("TM")) && upperStage.Contains("TM")) return data.iconSprite;
+            if ((key.Contains("COCONUT") || key.Contains("CC")) && upperStage.Contains("CC")) return data.iconSprite;
+            if ((key.Contains("MELON") || key.Contains("ML")) && upperStage.Contains("ML")) return data.iconSprite;
+            if ((key.Contains("CHERRY") || key.Contains("CH")) && upperStage.Contains("CH")) return data.iconSprite;
         }
 
         return null;

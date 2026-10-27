@@ -35,7 +35,7 @@ public class AddFriendViewController : MonoBehaviour
         FetchRecommendedFriends();
     }
 
-    // 💡 1. ดึงรายการแนะนำผู้เล่น
+    // 1. ดึงรายการแนะนำผู้เล่น
     public void FetchRecommendedFriends()
     {
         ClearContent();
@@ -83,7 +83,7 @@ public class AddFriendViewController : MonoBehaviour
         }
     }
 
-    // 💡 2. กดค้นหาด้วย user_tag
+    // 2. กดค้นหาด้วย user_tag
     private void OnSearchClicked()
     {
         string queryTag = searchInputField != null ? searchInputField.text.Trim() : "";
@@ -115,7 +115,7 @@ public class AddFriendViewController : MonoBehaviour
         ));
     }
 
-    // 💡 3. กดส่งคำขอเป็นเพื่อน
+    // 3. กดส่งคำขอเป็นเพื่อน
     private void OnSendFriendRequestClicked(string targetUserId)
     {
         StartCoroutine(SupabaseManager.Instance.SendFriendRequest(targetUserId,

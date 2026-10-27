@@ -4545,6 +4545,15 @@ MonoBehaviour:
   - itemId: ITEM_SEED_TOMATO
     itemSprite: {fileID: 21300000, guid: eb1886ec8721b428fa984a21f411636e, type: 3}
     defaultLocationId: 0
+  - itemId: ITEM_SEED_COCONUT
+    itemSprite: {fileID: 21300000, guid: 5217e9f24fd8743e1b31b484eb8678a9, type: 3}
+    defaultLocationId: 1
+  - itemId: ITEM_SEED_MELON
+    itemSprite: {fileID: 18852242346563330, guid: 9a7f363a0c3ae40f8bae28f002663a25, type: 3}
+    defaultLocationId: 2
+  - itemId: ITEM_SEED_CHERRY
+    itemSprite: {fileID: 0}
+    defaultLocationId: 0
   frameSprites:
   - rarityTier: silver
     frameSprite: {fileID: 21300000, guid: 6e59aaff384f15a4c9603a840e32afb1, type: 3}
@@ -4562,6 +4571,8 @@ MonoBehaviour:
     frameSprite: {fileID: 21300000, guid: 1b9c70d46f45f4afeb30743bd6db53fa, type: 3}
   - rarityTier: grade_s
     frameSprite: {fileID: 21300000, guid: 8a30198de94bf4dadaf625b699410393, type: 3}
+  - rarityTier: seed
+    frameSprite: {fileID: 21300000, guid: 694c2791f658b584e9270c0c8c825f8c, type: 3}
   defaultFrame: {fileID: 21300000, guid: 6e59aaff384f15a4c9603a840e32afb1, type: 3}
   locationCatalog:
   - locationId: 0
@@ -8176,6 +8187,8 @@ MonoBehaviour:
     iconSprite: {fileID: 21300000, guid: 5217e9f24fd8743e1b31b484eb8678a9, type: 3}
   - speciesKey: ML
     iconSprite: {fileID: -2039595713, guid: e62a485db47f5479a91d6018b66fe61f, type: 3}
+  - speciesKey: CH
+    iconSprite: {fileID: 0}
   plantStatus: {fileID: 1465075029}
 --- !u!1 &1077407077
 GameObject:

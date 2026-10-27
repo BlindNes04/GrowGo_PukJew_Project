@@ -43,7 +43,7 @@ EditorBuildSettings:
     guid: 8ae94de0c287140f7be6bc556eeee16c
   - enabled: 1
     path: Assets/Scenes/AddFriend.unity
-    guid: 65a9743785b1e484ebfa66fb23e1af4d
+    guid: ddb05e8529ca54509bf23476e7cdf03a
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

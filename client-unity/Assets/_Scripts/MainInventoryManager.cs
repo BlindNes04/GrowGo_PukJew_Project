@@ -109,7 +109,6 @@ public class MainInventoryManager : MonoBehaviour
 
             loadedInventory.Add(invItem);
 
-            // 💡 เรียกใช้ Smart Matcher ค้นหารูปแม้จะเป็นไอเทมหลายเกรด
             Sprite icon = GetItemSpriteSmart(invItem.item.item_id);
             Sprite frame = GetFrameSprite(invItem.item.rarity_tier);
 
@@ -145,14 +144,12 @@ public class MainInventoryManager : MonoBehaviour
         if (nameText != null) nameText.text = currentItem.item.item_name;
         if (descText != null) descText.text = currentItem.item.description;
 
-        // 📍 แสดงสถานที่พบจาก Location Catalog
         if (locationText != null)
         {
             int locId = GetLocationIdForData(currentItem);
             locationText.text = GetLocationName(locId);
         }
 
-        // 🖼️ รูปไอคอนไอเทม
         Sprite itemIcon = GetItemSpriteSmart(currentItem.item.item_id);
         if (detailIconImage != null)
         {
@@ -167,7 +164,6 @@ public class MainInventoryManager : MonoBehaviour
             }
         }
 
-        // 🖼️ รูปไอคอนสถานที่/Hint (ถ้ามี)
         if (hintIconImage != null)
         {
             int locId = GetLocationIdForData(currentItem);
@@ -201,12 +197,85 @@ public class MainInventoryManager : MonoBehaviour
         }
     }
 
+    // 🟢 4. เมื่อกดปุ่ม "เลือก/ใช้" ไอเทม
     public void OnClickSelectButton()
     {
-        if (currentSelectedItem == -1) return;
+        if (currentSelectedItem == -1 || currentSelectedItem >= loadedInventory.Count) return;
 
-        ShowFloatingTextPopup(currentSelectedItem);
-        CloseDetail();
+        SupabaseInventoryItem selectedInvItem = loadedInventory[currentSelectedItem];
+        string itemId = selectedInvItem.item.item_id;
+
+        // 💡 ถ้าเป็นเมล็ดพันธุ์ ให้เข้าสู่ฟังก์ชันปลูกพืช
+        if (!string.IsNullOrEmpty(itemId) && itemId.StartsWith("ITEM_SEED_"))
+        {
+            UseSeedToPlant(itemId);
+        }
+        else
+        {
+            ShowFloatingTextPopup(currentSelectedItem);
+            CloseDetail();
+        }
+    }
+
+    // 🟢 5. กระบวนการใช้เมล็ด: หักเมล็ดใน DB -> สร้าง player_plant -> รีเฟรชกระเป๋าทันที
+    private void UseSeedToPlant(string seedItemId)
+    {
+        if (SupabaseManager.Instance == null) return;
+
+        string initialStageId = MapSeedToInitialStage(seedItemId);
+        string defaultNickname = MapSeedToDefaultNickname(seedItemId);
+
+        Debug.Log($"[MainInventoryManager] 🔄 กำลังใช้เมล็ด {seedItemId} (Stage: {initialStageId})...");
+
+        // 1. หักเมล็ดออกจาก DB (-1) (ถ้าจำนวนเหลือ 0 จะลบแถวใน DB ให้อัตโนมัติ)
+        StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
+            seedItemId,
+            -1,
+            onSuccess: () =>
+            {
+                Debug.Log($"[MainInventoryManager] 🟢 หักเมล็ด {seedItemId} สำเร็จ!");
+
+                // 2. สร้างพืชใหม่ลงตาราง player_plant
+                StartCoroutine(SupabaseManager.Instance.CreatePlayerPlant(
+                    initialStageId,
+                    defaultNickname,
+                    onSuccess: () =>
+                    {
+                        Debug.Log($"[MainInventoryManager] 🟢 สร้างพืชใหม่ {initialStageId} ลง player_plant สำเร็จ!");
+
+                        // 3. รีเฟรช UI กระเป๋าทันทีเพื่อให้จำนวนไอเทมลดลง/หายไปจากหน้าจอ
+                        FetchInventoryAndRender();
+                        CloseDetail();
+                    },
+                    onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 สร้าง player_plant ล้มเหลว: {err}")
+                ));
+            },
+            onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 หักเมล็ดล้มเหลว: {err}")
+        ));
+    }
+
+    private string MapSeedToInitialStage(string seedItemId)
+    {
+        string upperSeed = seedItemId.ToUpper();
+
+        if (upperSeed.Contains("COCONUT") || upperSeed.Contains("CC")) return "STAGE_CC_01";
+        if (upperSeed.Contains("TOMATO") || upperSeed.Contains("TM")) return "STAGE_TM_01";
+        if (upperSeed.Contains("MELON") || upperSeed.Contains("ML")) return "STAGE_ML_01";
+        if (upperSeed.Contains("CHERRY") || upperSeed.Contains("CH")) return "STAGE_CH_01";
+
+        return "STAGE_TM_01";
+    }
+
+    private string MapSeedToDefaultNickname(string seedItemId)
+    {
+        string upperSeed = seedItemId.ToUpper();
+
+        if (upperSeed.Contains("COCONUT") || upperSeed.Contains("CC")) return "มะพร้าวของฉัน";
+        if (upperSeed.Contains("TOMATO") || upperSeed.Contains("TM")) return "มะเขือเทศของฉัน";
+        if (upperSeed.Contains("MELON") || upperSeed.Contains("ML")) return "เมล่อนของฉัน";
+        if (upperSeed.Contains("CHERRY") || upperSeed.Contains("CH")) return "เชอร์รี่ของฉัน";
+
+        return "ต้นไม้ของฉัน";
     }
 
     private void ShowFloatingTextPopup(int itemIndex)
@@ -266,20 +335,17 @@ public class MainInventoryManager : MonoBehaviour
     }
 
     // ==========================================
-    // 🧠 SMART MATCHING FUNCTIONS (ฟังก์ชันค้นหาอัจฉริยะ)
+    // 🧠 SMART MATCHING FUNCTIONS
     // ==========================================
 
-    // 💡 1. ค้นหารูปไอคอน: ลองค้นตาม ID เต็มก่อน ถ้าไม่เจอจะตัด _A, _B ออกแล้วหาใหม่
     private Sprite GetItemSpriteSmart(string itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return null;
 
-        // ค้นหาแบบตรงตัวก่อน (เช่น ITEM_ING_SANDPILE)
         var exactMatch = itemSprites.Find(x => x.itemId == itemId);
         if (exactMatch != null && exactMatch.itemSprite != null)
             return exactMatch.itemSprite;
 
-        // ถ้าหาไม่เจอ และเป็นไอดีที่มี _ ต่อท้าย (เช่น ITEM_FERT_ALL_A -> ITEM_FERT_ALL)
         if (itemId.Contains("_"))
         {
             int lastUnderscore = itemId.LastIndexOf('_');
@@ -293,30 +359,25 @@ public class MainInventoryManager : MonoBehaviour
         return null;
     }
 
-    // 💡 2. ดึงชื่อสถานที่จาก Location Catalog ตาม Location ID
     public string GetLocationName(int locationId)
     {
         var found = locationCatalog.Find(x => x.locationId == locationId);
         return found != null ? found.locationName : "พบได้จากกิจกรรมทั่วไป";
     }
 
-    // 💡 3. ดึงรูป Hint จาก Location Catalog
     public Sprite GetLocationIcon(int locationId)
     {
         var found = locationCatalog.Find(x => x.locationId == locationId);
         return found != null ? found.locationIcon : null;
     }
 
-    // 💡 4. คำนวณหา Location ID ของไอเทม
     private int GetLocationIdForData(SupabaseInventoryItem invItem)
     {
         if (invItem == null || invItem.item == null) return 0;
 
-        // ลองค้นหาใน Catalog ก่อน
         var match = itemSprites.Find(x => x.itemId == invItem.item.item_id);
         if (match != null) return match.defaultLocationId;
 
-        // ถ้าเป็นปุ๋ย ให้เป็นสถานที่ 0 (สวนหลัก)
         if (invItem.item.item_type == "fertilizer") return 0;
 
         return 0;

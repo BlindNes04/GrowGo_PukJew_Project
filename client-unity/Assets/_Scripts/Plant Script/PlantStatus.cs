@@ -132,10 +132,10 @@ public class PlantStatus : MonoBehaviour
 
         if (DateTimeOffset.TryParse(timeStr, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTimeOffset dto))
         {
-            result = dto.UtcDateTime; // แปลงเป็น UTC เสมอเพื่อนำไปลบกับ DateTime.UtcNow ในเกม
+            result = dto.UtcDateTime;
             if (result.Year > 2400)
             {
-                result = result.AddYears(-543); // แก้ปัญหาปีพ.ศ. > 2400 ให้เป็น ค.ศ.
+                result = result.AddYears(-543);
             }
             return true;
         }
@@ -274,8 +274,6 @@ public class PlantStatus : MonoBehaviour
 
         RefreshPlantDataFromMaster();
 
-        // 💡 ตั้งเวลาให้ย้อนหลังจนคูลดาวน์หมดพอดี (-waterIntervalHours * 1.1f)
-        // ผลคือ: ไม่ป่วย + คูลดาวน์เหลือ 0 วินาที พร้อมให้กดรดน้ำทันที ไม่ติดนับถอยหลัง 59:59 แล้ว!
         if (!isSick && !string.IsNullOrWhiteSpace(lastWateredAt))
         {
             DateTime lastTime;
@@ -424,6 +422,7 @@ public class PlantStatus : MonoBehaviour
         }
     }
 
+    // 💧 1. ฟังก์ชันรดน้ำ (Watering)
     public void WaterPlant()
     {
         if (!CanWater()) return;
@@ -440,6 +439,18 @@ public class PlantStatus : MonoBehaviour
         relationshipScore += finalRelationship;
 
         SaveData();
+
+        // 🟢 บันทึกประวัติการรดน้ำลงตาราง care_log
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(playerPlantId))
+        {
+            StartCoroutine(SupabaseManager.Instance.LogCareAction(
+                playerPlantId,
+                null,
+                "water",
+                finalExp,
+                finalRelationship
+            ));
+        }
 
         if (AlertPopupManager.Instance != null)
         {
@@ -496,6 +507,7 @@ public class PlantStatus : MonoBehaviour
     public void ApplyFertilizer()
     {
         ApplyFertilizerInternal(
+            null,
             baseNutrientsFromFertilizer,
             0f,
             baseExpFromFertilizer,
@@ -514,10 +526,11 @@ public class PlantStatus : MonoBehaviour
             return;
         }
 
+        string usedItemId = invItem.item.item_id;
         ItemMetadata meta = invItem.item.metadata;
         if (meta == null)
         {
-            ApplyFertilizer();
+            ApplyFertilizerInternal(usedItemId, baseNutrientsFromFertilizer, 0f, baseExpFromFertilizer, baseCoinsFromFertilizer, baseRelationshipFromFertilizer, "None", 0f);
             return;
         }
 
@@ -556,10 +569,12 @@ public class PlantStatus : MonoBehaviour
                 break;
         }
 
-        ApplyFertilizerInternal(gainNutrients, gainMoisture, gainExp, gainCoins, gainRelationship, "None", 0f);
+        ApplyFertilizerInternal(usedItemId, gainNutrients, gainMoisture, gainExp, gainCoins, gainRelationship, "None", 0f);
     }
 
+    // 🧪 2. ฟังก์ชันใส่ปุ๋ย (Fertilizing)
     private void ApplyFertilizerInternal(
+        string itemId,
         float gainNutrients,
         float gainMoisture,
         int gainExp,
@@ -588,6 +603,18 @@ public class PlantStatus : MonoBehaviour
         }
 
         SaveData();
+
+        // 🟢 บันทึกประวัติการใส่ปุ๋ยลงตาราง care_log
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(playerPlantId))
+        {
+            StartCoroutine(SupabaseManager.Instance.LogCareAction(
+                playerPlantId,
+                itemId,
+                "fertilize",
+                finalExp,
+                finalRelationship
+            ));
+        }
 
         if (AlertPopupManager.Instance != null)
         {
