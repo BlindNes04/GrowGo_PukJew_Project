@@ -54,8 +54,8 @@ for k in [3, 4, 5, 6]:
     score = silhouette_score(X_scaled, labels)
     print(f"k = {k} -> Silhouette Score: {score:.3f}")
 
-# Train Model (k = 5)
-kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
+# Train Model (k = 6)
+kmeans = KMeans(n_clusters=6, random_state=42, n_init=10)
 df_features['cluster_id'] = kmeans.fit_predict(X_scaled)
 
 cluster_means = df_features.groupby('cluster_id')[features].mean().round(1)
@@ -63,12 +63,12 @@ cluster_means = df_features.groupby('cluster_id')[features].mean().round(1)
 # Save Model
 joblib.dump(scaler, 'scaler.joblib')
 joblib.dump(kmeans, 'kmeans_model.joblib')
-print("บันทึก scaler.joblib และ kmeans_model.joblib เรียบร้อย")
+print("\nบันทึก scaler.joblib และ kmeans_model.joblib เรียบร้อย")
 
 # Plot Evaluation Graph (Elbow & Silhouette)
 inertias = []
 sil_scores = []
-k_range = range(2, 8)
+k_range = range(3, 9)
 
 for k in k_range:
     km = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -96,11 +96,12 @@ plt.show()
 
 # Heatmap Visualization
 cluster_names = {
-    0: 'Guardian',
-    1: 'Casual',     
+    0: 'Helper',
+    1: 'Collector',     
     2: 'Explorer',  
-    3: 'Collector',  
-    4: 'Helper'      
+    3: 'Gamer',  
+    4: 'Casual',
+    5: 'Guardian'     
 }
 
 cluster_means_named = cluster_means.rename(index=cluster_names)
@@ -119,7 +120,7 @@ sns.heatmap(
     cbar=True,
     annot_kws={'size': 10}
 )
-plt.title('Player Persona Profiling (k = 5)', fontsize=14, fontweight='bold', pad=15)
+plt.title('Player Persona Profiling (k = 6)', fontsize=14, fontweight='bold', pad=15)
 plt.xlabel('Game Activities / Features', fontsize=11, labelpad=10)
 plt.ylabel('Persona Type', fontsize=11, labelpad=10)
 plt.xticks(rotation=30, ha='right')
@@ -127,4 +128,4 @@ plt.yticks(rotation=0)
 plt.tight_layout()
 plt.show()
 
-print("ประมวลผลและแสดงผลกราฟ Cluster เรียบร้อย")
+print("\nประมวลผลและแสดงผลกราฟ Cluster เรียบร้อย\n")

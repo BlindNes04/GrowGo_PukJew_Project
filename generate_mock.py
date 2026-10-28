@@ -14,8 +14,8 @@ personas_config = {
             'play_block_blast': 15,
             'explore_island': 125,
             'collect_species': 15,
-            'submit_tree_cert': 0,
-            'water_friend_tree': 20
+            'submit_tree_cert': 1,
+            'water_friend_tree': 25
         }
     },
     'Guardian': {
@@ -25,18 +25,18 @@ personas_config = {
             'play_block_blast': 15,
             'explore_island': 20,
             'collect_species': 8,
-            'submit_tree_cert': 45,
-            'water_friend_tree': 20
+            'submit_tree_cert': 30,
+            'water_friend_tree': 30
         }
     },
     'Helper': {
         'rates': {
-            'craft_fertilizer': 20,
-            'play_fruit_merge': 25,
-            'play_block_blast': 25,
+            'craft_fertilizer': 25,
+            'play_fruit_merge': 30,
+            'play_block_blast': 35,
             'explore_island': 20,
-            'collect_species': 8,
-            'submit_tree_cert': 0,
+            'collect_species': 10,
+            'submit_tree_cert': 1,
             'water_friend_tree': 90
         }
     },
@@ -58,7 +58,18 @@ personas_config = {
             'play_block_blast': 30,
             'explore_island': 35,
             'collect_species': 10,
-            'submit_tree_cert': 0,
+            'submit_tree_cert': 1,
+            'water_friend_tree': 20
+        }
+    },
+    'Gamer': {
+        'rates': {
+            'craft_fertilizer': 70,
+            'play_fruit_merge': 90,
+            'play_block_blast': 90,
+            'explore_island': 35,
+            'collect_species': 10,
+            'submit_tree_cert': 1,
             'water_friend_tree': 20
         }
     }
@@ -95,6 +106,8 @@ for persona_name, cfg in personas_config.items():
             'total_relationships': int(np.random.randint(0, 500)),
             'flower_points': int(np.random.randint(0, 500)),
             'green_points': int(np.random.randint(0, 500)),
+            'stamina': int(np.random.choice([0, 10, 20, 30])),
+            'last_stamina_update': (start_date + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S"),
             'created_at': start_date.strftime("%Y-%m-%d %H:%M:%S"),
             'last_login_at': (start_date + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S"),
         })
@@ -111,7 +124,7 @@ for persona_name, cfg in personas_config.items():
                 rand_seconds = np.random.randint(0, 30 * 86400)
                 ts = start_date + timedelta(seconds=rand_seconds)
                 logs.append({
-                    'log_id': f"BEH_LOG_{log_counter:06d}",
+                    'log_id': f"MCK_BH{log_counter:06d}",
                     'user_id': uid,
                     'activity_type': act,
                     'timestamp': ts.strftime("%Y-%m-%d %H:%M:%S")
@@ -120,6 +133,6 @@ for persona_name, cfg in personas_config.items():
 
 # Export เป็น CSV
 pd.DataFrame(users).to_csv('user.csv', index=False)
-pd.DataFrame(logs).sample(frac=1, random_state=42).reset_index(drop=True).to_csv('behaviour_log.csv', index=False)
+pd.DataFrame(logs).sample(frac=1, random_state=42).reset_index(drop=True).to_csv('behavior_log.csv', index=False)
 
 print("สร้างและบันทึกไฟล์ user.csv และ behavior_log.csv เรียบร้อย")
