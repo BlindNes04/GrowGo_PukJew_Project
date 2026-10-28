@@ -39,22 +39,25 @@ public class GameFlowManager : MonoBehaviour
     private Coroutine quoteCoroutine;
     private Vector2 bannerStartPos;
 
-    private const string STAMINA_KEY = "Player_Current_Stamina";
-    private const string LAST_DATE_KEY = "Last_Login_Date";
+    private bool isProcessing = false;
 
     void Awake()
     {
         if (Instance == null) Instance = this;
     }
 
-    void Start()
+    async void Start()
     {
         if (startBanner != null)
         {
             bannerStartPos = startBanner.anchoredPosition;
         }
 
-        CheckMidnightReset();
+        if (StaminaManager.Instance != null)
+        {
+            await StaminaManager.Instance.FetchStaminaAsync();
+        }
+        
         UpdateStaminaUI();
 
         if (startComponent != null) startComponent.SetActive(true);
@@ -83,37 +86,30 @@ public class GameFlowManager : MonoBehaviour
         }
     }
 
-    void CheckMidnightReset()
+    public async void OnClickStartSearch()
     {
-        string todayStr = DateTime.Now.ToString("yyyyMMdd");
-        string lastSavedDate = PlayerPrefs.GetString(LAST_DATE_KEY, "");
+        if (isProcessing) return;
+        isProcessing = true;
 
-        if (string.IsNullOrEmpty(lastSavedDate) || todayStr != lastSavedDate)
+        bool isSuccess = false;
+        if (StaminaManager.Instance != null)
         {
-            currentStamina = maxStamina;
-            PlayerPrefs.SetInt(STAMINA_KEY, currentStamina);
-            PlayerPrefs.SetString(LAST_DATE_KEY, todayStr);
-            PlayerPrefs.Save();
+            isSuccess = await StaminaManager.Instance.ConsumeStaminaAsync(searchCost);
         }
         else
         {
-            currentStamina = PlayerPrefs.GetInt(STAMINA_KEY, maxStamina);
+            isSuccess = (currentStamina >= searchCost);
+            if (isSuccess) currentStamina -= searchCost;
         }
-    }
 
-    public void OnClickStartSearch()
-    {
-        if (currentStamina >= searchCost)
+        UpdateStaminaUI();
+
+        if (isSuccess)
         {
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySFX(AudioManager.Instance.clickSFX);
             }
-
-            currentStamina -= searchCost;
-            PlayerPrefs.SetInt(STAMINA_KEY, currentStamina);
-            PlayerPrefs.Save();
-            UpdateStaminaUI();
 
             // Randomize the item and spawn point
             if (ItemSpawner.Instance != null)
@@ -136,6 +132,8 @@ public class GameFlowManager : MonoBehaviour
 
             ShowAutoFadeError();
         }
+
+        isProcessing = false;
     }
 
     public void BackToStart()
@@ -213,6 +211,10 @@ public class GameFlowManager : MonoBehaviour
 
     void UpdateStaminaUI()
     {
-        if (staminaText != null) staminaText.text = currentStamina.ToString();
+        if (staminaText != null)
+        {
+            int displayStamina = StaminaManager.Instance != null ? StaminaManager.Instance.CurrentStamina : currentStamina;
+            staminaText.text = displayStamina.ToString();
+        }
     }
 }
