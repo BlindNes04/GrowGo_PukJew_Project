@@ -26,7 +26,7 @@ public class BeachShellManager : MonoBehaviour
     public Button[] shellButtons; 
 
     [Header("ระบบ Reward Popup")]
-    public RewardController rewardController; 
+    public BeachRewardController BeachRewardController; 
     public BeachItemData[] beachItems; 
 
     [Header("ตั้งค่า Cooldown (วินาที)")]
@@ -154,7 +154,7 @@ public class BeachShellManager : MonoBehaviour
 
         if (beachItems != null && beachItems.Length > 0)
         {
-            // 🎲 สุ่มไอเทมตามเปอร์เซ็นต์ Drop Rate (Weighted Random)
+            // สุ่มไอเทมตามเปอร์เซ็นต์ Drop Rate (Weighted Random)
             BeachItemData currentEarnedItem = GetRandomItemByDropRate();
 
             if (currentEarnedItem != null)
@@ -168,13 +168,13 @@ public class BeachShellManager : MonoBehaviour
                     itemIcon = currentEarnedItem.itemIcon
                 };
 
-                if (rewardController != null)
+                if (BeachRewardController != null)
                 {
-                    rewardController.OpenRewardWindow(rewardData);
+                    BeachRewardController.OpenRewardWindow(rewardData);
                 }
                 else
                 {
-                    Debug.LogError("[BeachShellManager] 🔴 rewardController is null! Check Inspector.");
+                    Debug.LogError("[BeachShellManager] 🔴 BeachRewardController is null! Check Inspector.");
                 }
             }
         }
@@ -182,7 +182,7 @@ public class BeachShellManager : MonoBehaviour
         clickedShell.gameObject.SetActive(false);
     }
 
-    // 🎲 ฟังก์ชันสุ่ม Weighted Random
+    // ฟังก์ชันสุ่ม Weighted Random
     private BeachItemData GetRandomItemByDropRate()
     {
         float totalWeight = 0f;

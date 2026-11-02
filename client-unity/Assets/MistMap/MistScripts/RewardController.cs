@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// ==================== RewardController Class ====================
 public class RewardController : MonoBehaviour
 {
     [Header("Reward UI Display")]
@@ -26,7 +25,7 @@ public class RewardController : MonoBehaviour
     public Button backToStartButton;
 
     private Coroutine sequenceCoroutine;
-    private string currentRewardedItemId;
+    private string currentRewardedItemId; // ตัวแปรจำ ID ไอเทม
 
     private void Awake()
     {
@@ -51,17 +50,16 @@ public class RewardController : MonoBehaviour
         }
     }
 
-    // Opens reward popup and caches item data
     public void OpenRewardWindow(ItemData item)
     {
         if (item == null)
         {
-            Debug.LogError("[RewardController] 🔴 Received a null item!", this);
+            Debug.LogError(
+                "[RewardController] Received a null item!", this);
             return;
         }
 
-        currentRewardedItemId = item.itemId;
-        Debug.Log($"[RewardController] 🎁 Opened Reward Window with Item: {item.itemName} (ID: {item.itemId})");
+        currentRewardedItemId = item.itemId; // จำรหัสไอเทมที่ได้รับ
 
         gameObject.SetActive(true);
 
@@ -119,6 +117,7 @@ public class RewardController : MonoBehaviour
             StartCoroutine(PopAnimation(sunburst, popDuration, 1.1f));
         }
 
+        // Pop Animation
         if (rewardItemImage != null)
         {
             yield return StartCoroutine(PopAnimation(rewardItemImage.rectTransform, popDuration, itemPopOvershoot));
@@ -126,6 +125,7 @@ public class RewardController : MonoBehaviour
 
         yield return new WaitForSeconds(textDelay);
 
+        // Fade-in Animation
         if (youGotText != null)
         {
             yield return StartCoroutine(FadeAnimation(youGotText.rectTransform, fadeDuration));
@@ -135,14 +135,15 @@ public class RewardController : MonoBehaviour
 
         if (rewardNameText != null)
         {
-            yield return StartCoroutine(FadeAnimation(rewardNameText.rectTransform, fadeDuration));
+            yield return StartCoroutine(FadeAnimation(rewardNameText.rectTransform,fadeDuration));
         }
 
         yield return new WaitForSeconds(0.12f);
 
+        // Pop Animation
         if (buttonRect != null)
         {
-            yield return StartCoroutine(PopAnimation(buttonRect, popDuration, buttonPopOvershoot));
+            yield return StartCoroutine(PopAnimation(buttonRect,popDuration,buttonPopOvershoot));
         }
 
         sequenceCoroutine = null;
@@ -182,7 +183,9 @@ public class RewardController : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
 
             float scaleT = Mathf.SmoothStep(0f, 1f, t);
-            float bounce = 1f + (overshoot - 1f) * Mathf.Sin(t * Mathf.PI);
+
+            float bounce =
+                1f + (overshoot - 1f) * Mathf.Sin(t * Mathf.PI);
 
             target.localScale = Vector3.one * (scaleT * bounce);
             group.alpha = t;
@@ -194,7 +197,9 @@ public class RewardController : MonoBehaviour
         group.alpha = 1f;
     }
 
-    private IEnumerator FadeAnimation(RectTransform target, float duration)
+    private IEnumerator FadeAnimation(
+        RectTransform target,
+        float duration)
     {
         if (target == null)
             yield break;
@@ -215,7 +220,9 @@ public class RewardController : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
+
             group.alpha = Mathf.Clamp01(elapsed / duration);
+
             yield return null;
         }
 
@@ -232,43 +239,43 @@ public class RewardController : MonoBehaviour
         return group;
     }
 
-    // Saves item to Supabase inventory and triggers cooldown on BeachShellManager
-    private void OnBackToStartClicked()
+private void OnBackToStartClicked()
+{
+    if (SupabaseManager.Instance == null)
     {
-        if (SupabaseManager.Instance == null)
-        {
-            Debug.LogError("[RewardController] 🔴 SupabaseManager.Instance เป็น NULL!");
-        }
-        else if (string.IsNullOrEmpty(currentRewardedItemId))
-        {
-            Debug.LogError("[RewardController] 🔴 currentRewardedItemId เป็นค่าว่าง!");
-        }
-        else
-        {
-            Debug.Log($"[RewardController] 🔄 กำลังยิงบันทึกไอเทม '{currentRewardedItemId}' เข้าตาราง inventory ใน Supabase...");
-
-            // 💡 เรียก StartCoroutine บน SupabaseManager.Instance เพื่อไม่ให้ดับตามป๊อปอัปที่โดน SetActive(false)
-            SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
-                currentRewardedItemId,
-                1,
-                onSuccess: () =>
-                {
-                    Debug.Log($"[RewardController] 🟢 บันทึกไอเทม '{currentRewardedItemId}' ลง Supabase DB สำเร็จ!");
-                },
-                onError: (error) =>
-                {
-                    Debug.LogError($"[RewardController] 🔴 ยิง Supabase DB ล้มเหลว: {error}");
-                }
-            ));
-        }
-
-        // แจ้ง BeachShellManager ให้เริ่มนับ Cooldown
-        if (BeachShellManager.Instance != null)
-        {
-            BeachShellManager.Instance.OnRewardClaimed();
-        }
-
-        // ปิดหน้าต่าง Popup รางวัล
-        gameObject.SetActive(false);
+        Debug.LogError("[MistRewardController] 🔴 SupabaseManager.Instance เป็น NULL!");
     }
+    else if (string.IsNullOrEmpty(currentRewardedItemId))
+    {
+        Debug.LogError("[MistRewardController] 🔴 currentRewardedItemId เป็นค่าว่าง!");
+    }
+    else
+    {
+        // 🟢 1. ตัด Space หน้าหลังทิ้ง
+        string cleanItemId = currentRewardedItemId.Trim();
+
+        // 🟢 2. พิมพ์ความยาวตัวอักษรออกมาเช็ก ('ITEM_ING_FOSSIL' ต้องได้ความยาว 15 ตัวพอดี)
+        Debug.Log($"[MistRewardController] 🔍 ยิงไอเทม: '{cleanItemId}' (ความยาว: {cleanItemId.Length} ตัวอักษร)");
+
+        SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
+            cleanItemId,
+            1,
+            onSuccess: () =>
+            {
+                Debug.Log($"[MistRewardController] 🟢 บันทึกไอเทม '{cleanItemId}' ลง Supabase DB สำเร็จ!");
+            },
+            onError: (error) =>
+            {
+                Debug.LogError($"[MistRewardController] 🔴 ยิง Supabase DB ล้มเหลว: {error}");
+            }
+        ));
+    }
+
+    if (GameFlowManager.Instance != null)
+    {
+        GameFlowManager.Instance.BackToStart();
+    }
+
+    gameObject.SetActive(false);
+}
 }

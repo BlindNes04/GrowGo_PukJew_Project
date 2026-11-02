@@ -121,7 +121,7 @@ public class MagnifyingGlassDrag : MonoBehaviour,
             dragParentRect, eventData.position, uiCamera, out Vector2 pointerLocal))
         {
             handleRectTransform.localPosition = pointerLocal + pointerOffsetLocal;
-            ClampHandleToFrame();
+            KeepLensWithinSmallAllowance();
         }
 
         CheckIfHovering();
@@ -137,11 +137,6 @@ public class MagnifyingGlassDrag : MonoBehaviour,
 
         if (handleRectTransform != null)
             handleRectTransform.anchoredPosition = handleStartAnchoredPosition;
-    }
-
-    private void ClampHandleToFrame()
-    {
-        KeepLensWithinSmallAllowance();
     }
 
     private void KeepLensWithinSmallAllowance()

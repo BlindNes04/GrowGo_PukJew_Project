@@ -422,7 +422,7 @@ public class PlantStatus : MonoBehaviour
         }
     }
 
-    // 💧 1. ฟังก์ชันรดน้ำ (Watering)
+    // 1. ฟังก์ชันรดน้ำ (Watering)
     public void WaterPlant()
     {
         if (!CanWater()) return;
@@ -440,7 +440,7 @@ public class PlantStatus : MonoBehaviour
 
         SaveData();
 
-        // 🟢 บันทึกประวัติการรดน้ำลงตาราง care_log
+        // บันทึกประวัติการรดน้ำลงตาราง care_log
         if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(playerPlantId))
         {
             StartCoroutine(SupabaseManager.Instance.LogCareAction(

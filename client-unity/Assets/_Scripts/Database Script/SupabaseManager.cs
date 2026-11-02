@@ -8,7 +8,25 @@ using Newtonsoft.Json;
 // ==================== SupabaseManager Class ====================
 public class SupabaseManager : MonoBehaviour
 {
-    public static SupabaseManager Instance;
+
+    private static SupabaseManager instance;
+
+    // Check if [SupabaseManger] exists in the scene, if not, auto create one
+    public static SupabaseManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindFirstObjectByType<SupabaseManager>();
+                if (instance == null)
+                {
+                    instance = new GameObject("[SupabaseManager]").AddComponent<SupabaseManager>();
+                }
+            }
+            return instance;
+        }
+    }
 
     [Header("Supabase Configuration")]
     public string supabaseUrl = "https://xwvqxyeybgwiaxpodnaq.supabase.co";
@@ -21,10 +39,10 @@ public class SupabaseManager : MonoBehaviour
     {
         if (Instance == null)
         {
-            Instance = this;
+            instance = this;
             DontDestroyOnLoad(gameObject);
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
         }
