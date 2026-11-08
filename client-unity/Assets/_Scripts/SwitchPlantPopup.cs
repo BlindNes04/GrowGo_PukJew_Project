@@ -34,7 +34,7 @@ public class SwitchPlantPopup : MonoBehaviour
             closeButton.onClick.AddListener(ClosePopup);
 
         if (plantStatus == null)
-            plantStatus = FindFirstObjectByType<PlantStatus>();
+            plantStatus = FindAnyObjectByType<PlantStatus>();
     }
 
     private void OnEnable()

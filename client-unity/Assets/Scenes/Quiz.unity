@@ -1050,7 +1050,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -4677205242863488633, guid: 32718da0800f8e146b9f64957f7230ca, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 2b0a60b9bdd2045fc85fa457389c69c7, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3056,6 +3056,8 @@ MonoBehaviour:
   sunburstTransform: {fileID: 1174206426}
   seedTomatoTransform: {fileID: 935070365}
   contentCanvasGroup: {fileID: 1211367328}
+  finishButton: {fileID: 924345804}
+  targetSceneName: MainForest
   rotateSpeed: 20
   shakeAngle: 5
   shakeSpeed: 20

@@ -21,11 +21,11 @@ public class BuddyManager : MonoBehaviour
     [SerializeField] private TextAsset resultCsvFile;
 
     [Header("Buddy Result UI")]
-    [SerializeField] private TMP_Text titleText;               
-    [SerializeField] private Image resultCharacterImage;      
-    [SerializeField] private TMP_Text resultBuddyNameText;     
-    [SerializeField] private TMP_Text resultSkillNameText;    
-    [SerializeField] private TMP_Text resultDescriptionText;  
+    [SerializeField] private TMP_Text titleText;
+    [SerializeField] private Image resultCharacterImage;
+    [SerializeField] private TMP_Text resultBuddyNameText;
+    [SerializeField] private TMP_Text resultSkillNameText;
+    [SerializeField] private TMP_Text resultDescriptionText;
 
     [Header("Canvas & Next Manager")]
     [SerializeField] private GameObject buddyCanvas;
@@ -120,8 +120,35 @@ public class BuddyManager : MonoBehaviour
         PlayerPrefs.SetString("PlayerMBTI", finalMBTI);
         PlayerPrefs.Save();
 
+        // ดึง buddyId จาก CSV แล้วยิงบันทึกลง Supabase DB
+        string buddyIdToSave = finalMBTI;
+        if (resultDatabase.TryGetValue(finalMBTI, out ResultData resultData))
+        {
+            buddyIdToSave = resultData.buddyId;
+        }
+
+        SaveBuddyToDatabase(buddyIdToSave);
+
         PrepareResultUI(finalMBTI);
         StartCoroutine(PlayResultFadeSequence());
+    }
+
+    // ฟังก์ชันยิงอัปเดต buddy_id ลงตาราง user
+    private void SaveBuddyToDatabase(string buddyId)
+    {
+        if (SupabaseManager.Instance != null)
+        {
+            StartCoroutine(SupabaseManager.Instance.UpdateUserBuddyId(buddyId,
+                onSuccess: () =>
+                {
+                    Debug.Log($"[BuddyManager] 🟢 บันทึก buddy_id '{buddyId}' ลง DB เรียบร้อย");
+                },
+                onError: (err) =>
+                {
+                    Debug.LogError($"[BuddyManager] 🔴 บันทึก buddy_id ล้มเหลว: {err}");
+                }
+            ));
+        }
     }
 
     private void PrepareResultUI(string mbtiKey)
@@ -165,9 +192,6 @@ public class BuddyManager : MonoBehaviour
         resultCharacterImage.preserveAspect = true;
     }
 
-    // =========================================================
-    // Fade-in Sequence
-    // =========================================================
     private IEnumerator PlayResultFadeSequence()
     {
         yield return StartCoroutine(FadeGraphic(titleText));
@@ -230,9 +254,6 @@ public class BuddyManager : MonoBehaviour
         graphic.color = c;
     }
 
-    // =========================================================
-    // Switch to SeedCanvas
-    // =========================================================
     private void GoToSeedCanvas()
     {
         if (buddyCanvas != null) buddyCanvas.SetActive(false);

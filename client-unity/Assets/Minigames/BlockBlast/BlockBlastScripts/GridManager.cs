@@ -415,23 +415,18 @@ public class GridManager : MonoBehaviour
 
     private IEnumerator SpawnAllClearBanner(int bonus)
     {
-        GameObject banner = new GameObject("AllClearBanner", typeof(RectTransform), typeof(TextMeshProUGUI));
-        banner.transform.SetParent(boardGrid.root, false);
+        if (comboTextPrefab == null) yield break;
+
+        GameObject banner = Instantiate(comboTextPrefab, boardGrid.root);
         banner.transform.position = boardGrid.position;
 
         TextMeshProUGUI tmp = banner.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize = 92;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.alignment = TextAlignmentOptions.Center;
-
-        tmp.text = $"<b><color=#FFE600>ล้างกระดาน!</color></b>\n<b><color=#FFFFFF>+{bonus}</color></b>";
-        tmp.outlineWidth = 0.38f;
-        tmp.outlineColor = new Color32(20, 20, 30, 255);
-        tmp.raycastTarget = false;
+        if (tmp != null)
+        {
+            tmp.text = $"<color=#FFE600>ล้างกระดาน!</color>\n<color=#FFFFFF>+{bonus}</color>";
+        }
 
         RectTransform rt = banner.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(800, 400);
-
         float duration = 1.1f;
         float elapsed = 0f;
 
@@ -440,8 +435,15 @@ public class GridManager : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
 
-            rt.localScale = Vector3.one * Mathf.Lerp(0.5f, 1.25f, t);
-            if (t > 0.7f) tmp.alpha = Mathf.Lerp(1f, 0f, (t - 0.7f) / 0.3f);
+            if (rt != null)
+            {
+                rt.localScale = Vector3.one * Mathf.Lerp(0.5f, 1.25f, t);
+            }
+
+            if (t > 0.7f && tmp != null)
+            {
+                tmp.alpha = Mathf.Lerp(1f, 0f, (t - 0.7f) / 0.3f);
+            }
 
             yield return null;
         }

@@ -10,10 +10,14 @@ public class MainPlantStatusView : MonoBehaviour
     [Header("อ้างอิงข้อมูลพืช")]
     public PlantStatus plantStatus;
 
+    [Header("UI Display Container (ซ่อนพืชถ้าไม่มีใน DB)")]
+    [Tooltip("GameObject รวมของตัวพืช/กระถางบนแท่นหิน (ถ้าไม่มีพืช จะสั่ง SetActive(false))")]
+    public GameObject plantDisplayContainer;
+
     [Header("UI Text & Images (สเตตัสพืช)")]
     public TextMeshProUGUI plantNameText;
     public string namePrefix = "ชื่อ: ";
-    public TextMeshProUGUI stageNamePillText; // 👈 ลาก Text ใน Pill สีเทา/ส้ม ใต้ชื่อพืชมาใส่ช่องนี้
+    public TextMeshProUGUI stageNamePillText; // ลาก Text ใน Pill สีเทา/ส้ม ใต้ชื่อพืชมาใส่ช่องนี้
     public Image moistureFillBar;          // หลอดสีฟ้า (Moisture_Fill)
     public Image nutrientsFillBar;         // หลอดสีแดง (Nutrient_Fill)
 
@@ -28,8 +32,9 @@ public class MainPlantStatusView : MonoBehaviour
     public Button closeOverlayButton;      // ปุ่ม CloseOverlay (ล่องหน)
 
     [Header("UI Popups")]
-    public GameObject nourishPopupUI;      // 🌿 หน้า Pop-up บำรุงพืช (Nourish_Popup)
+    public GameObject nourishPopupUI;      // หน้า Pop-up บำรุงพืช (Nourish_Popup)
     public RenamePlantPopup renamePlantPopup; // หน้า Pop-up เปลี่ยนชื่อ
+    public GameObject plantSickPopup;
 
     void Awake()
     {
@@ -52,7 +57,7 @@ public class MainPlantStatusView : MonoBehaviour
 
         if (plantStatus == null)
         {
-            plantStatus = FindFirstObjectByType<PlantStatus>();
+            plantStatus = FindAnyObjectByType<PlantStatus>();
         }
 
         CloseView();
@@ -71,12 +76,12 @@ public class MainPlantStatusView : MonoBehaviour
         }
     }
 
-    // 💡 ฟังก์ชันเปิดหน้ารดน้ำ
+    // ฟังก์ชันเปิดหน้ารดน้ำ
     public void OpenView()
     {
         if (plantStatus == null)
         {
-            plantStatus = FindFirstObjectByType<PlantStatus>();
+            plantStatus = FindAnyObjectByType<PlantStatus>();
         }
 
         if (plantStatus != null)
@@ -92,7 +97,7 @@ public class MainPlantStatusView : MonoBehaviour
         UpdateUI();
     }
 
-    // 💡 ฟังก์ชันปิดหน้ารดน้ำ
+    // ฟังก์ชันปิดหน้ารดน้ำ
     public void CloseView()
     {
         gameObject.SetActive(false);
@@ -101,10 +106,27 @@ public class MainPlantStatusView : MonoBehaviour
             closeOverlayButton.gameObject.SetActive(false);
     }
 
-    // 💡 อัปเดต UI แสดงผลหลอดความชุ่มชื้น สารอาหาร และชื่อร่างใน Pill
+    // อัปเดต UI แสดงผลหลอดความชุ่มชื้น สารอาหาร และชื่อร่างใน Pill
     public void UpdateUI()
     {
-        if (plantStatus == null) return;
+        if (plantStatus == null)
+        {
+            SetPlantContainerVisible(false);
+            return;
+        }
+
+        // เช็กว่ามีพืชอยู่ในระบบจริงไหม
+        bool hasActivePlant = !string.IsNullOrEmpty(plantStatus.playerPlantId);
+
+        if (!hasActivePlant)
+        {
+            Debug.Log("[MainPlantStatusView] 🟢 ไม่พบข้อมูลพืชในระบบ -> ซ่อนการแสดงผลตัวพืช (พื้นที่ว่าง)");
+            SetPlantContainerVisible(false);
+            return;
+        }
+
+        // ถ้ามีพืช -> เปิดแสดงผลตัวพืชและอัปเดต UI
+        SetPlantContainerVisible(true);
 
         // 1. ชื่อตั้งของพืช
         if (plantNameText != null)
@@ -130,12 +152,31 @@ public class MainPlantStatusView : MonoBehaviour
 
         // 5. สั่งซิงค์ภาพพืชบนแท่นหินให้ตรงกับร่างปัจจุบัน
         plantStatus.SyncCharacterVisual();
+
+        // 6. Plant Sick Popup
+        if (plantSickPopup != null)
+        {
+            plantSickPopup.SetActive(plantStatus.isSick);
+        }
+    }
+
+    private void SetPlantContainerVisible(bool isVisible)
+    {
+        if (plantDisplayContainer != null)
+        {
+            plantDisplayContainer.SetActive(isVisible);
+        }
     }
 
     private void UpdateCooldownUI()
     {
-        if (plantStatus == null) return;
+        if (plantStatus == null || string.IsNullOrEmpty(plantStatus.playerPlantId)) return;
 
+        // อัปเดตหลอดความชุ่มชื้นให้ขยับลดลงเรื่อยๆ แบบเรียลไทม์ขณะเปิดหน้าต่างทิ้งไว้
+        if (moistureFillBar != null && plantStatus.maxMoisture > 0)
+        {
+            moistureFillBar.fillAmount = Mathf.Clamp01(plantStatus.currentMoisture / plantStatus.maxMoisture);
+        }
         if (plantStatus.CanWater())
         {
             if (waterButton != null) waterButton.gameObject.SetActive(true);
@@ -155,12 +196,12 @@ public class MainPlantStatusView : MonoBehaviour
                 float remainingSecs = plantStatus.GetRemainingCooldownSeconds();
                 TimeSpan t = TimeSpan.FromSeconds(remainingSecs);
 
+                // ใช้ (int)t.TotalHours เพื่อรองรับเผื่อกรณี Cooldown เกิน 24 ชั่วโมง
                 if (cooldownText != null)
-                    cooldownText.text = string.Format("{0:D2}:{1:D2}", t.Minutes, t.Seconds);
+                    cooldownText.text = string.Format("{0:D2}:{1:D2}:{2:D2}", (int)t.TotalHours, t.Minutes, t.Seconds);
             }
         }
     }
-
     private void OnWaterButtonClicked()
     {
         if (plantStatus == null || !plantStatus.CanWater()) return;
@@ -173,7 +214,7 @@ public class MainPlantStatusView : MonoBehaviour
         UpdateUI();
     }
 
-    // 🌿 เมื่อกดปุ่ม "บำรุง"
+    // เมื่อกดปุ่ม "บำรุง"
     private void OnNourishButtonClicked()
     {
         if (MAudioManager.instance != null)

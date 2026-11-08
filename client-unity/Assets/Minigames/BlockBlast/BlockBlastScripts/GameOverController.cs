@@ -160,15 +160,30 @@ public class GameOverController : MonoBehaviour
         return list[Random.Range(0, list.Count)];
     }
 
+    // บันทึกไอเทมเข้าตาราง inventory ใน Supabase
     private void SaveRewardToInventory(string itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return;
 
-        Debug.Log($"[Reward] มอบไอเทม: {itemId}");
+        Debug.Log($"[BlockBlast] มอบไอเทม: {itemId}");
 
-        int currentQty = PlayerPrefs.GetInt("INV_" + itemId, 0);
-        PlayerPrefs.SetInt("INV_" + itemId, currentQty + 1);
-        PlayerPrefs.Save();
+        if (SupabaseManager.Instance != null)
+        {
+            StartCoroutine(SupabaseManager.Instance.AddItemToInventory(itemId, 1, 
+                onSuccess: () => 
+                {
+                    Debug.Log($"[BlockBlast] 🟢 บันทึกไอเทม {itemId} x1 ลง DB เรียบร้อย");
+                }, 
+                onError: (error) => 
+                {
+                    Debug.LogError($"[BlockBlast] 🔴 บันทึกไอเทมลง DB ล้มเหลว: {error}");
+                }
+            ));
+        }
+        else
+        {
+            Debug.LogError("[BlockBlast] 🔴 ไม่พบ SupabaseManager.Instance ไม่สามารถมอบรางวัลลง DB ได้!");
+        }
     }
 
     private IEnumerator AnimateGameOverPopup()
@@ -268,7 +283,6 @@ public class GameOverController : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
 
-            // Ease Out Back
             t -= 1f;
             float easeOut = (t * t * ((s + 1f) * t + s) + 1f);
 

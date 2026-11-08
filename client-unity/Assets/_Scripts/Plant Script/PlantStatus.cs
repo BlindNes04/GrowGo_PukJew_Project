@@ -29,14 +29,14 @@ public class PlantStatus : MonoBehaviour
     public string userId = "USER_001";
     public string plantNickname = "น้องมะเขือติดปีก";
 
-    public string plantName 
-    { 
-        get => plantNickname; 
-        set => plantNickname = value; 
+    public string plantName
+    {
+        get => plantNickname;
+        set => plantNickname = value;
     }
 
     [Header("🌱 ข้อมูลสายพันธุ์และร่างปัจจุบัน (Dynamic From DB)")]
-    public string speciesId = "SPEC_TOMATO"; 
+    public string speciesId = "SPEC_TOMATO";
     public string speciesName = "มะเขือเทศ";
     public string currentStageId = "STAGE_TM_01";
     public int currentStageLevel = 1;
@@ -85,6 +85,10 @@ public class PlantStatus : MonoBehaviour
     public int baseExpFromWater = 15;
     public int baseCoinsFromWater = 10;
     public int baseRelationshipFromWater = 5;
+
+    [Header("🐾 ข้อมูล Buddy Passive Buff")]
+    public string activeBuddySkillType = "NONE"; // เช่น CURE_SICK_CHANCE, DRY_GRACE_TIME
+    public float activeBuddySkillValue = 0f;
 
     public float baseNutrientsFromFertilizer = 25f;
     public int baseExpFromFertilizer = 25;
@@ -152,13 +156,14 @@ public class PlantStatus : MonoBehaviour
         List<SupabaseEvolutionRule> rulesList = new List<SupabaseEvolutionRule>();
 
         yield return StartCoroutine(SupabaseManager.Instance.GetPlayerPlantData(
-            onSuccess: (json) => {
+            onSuccess: (json) =>
+            {
                 string wrappedJson = "{\"items\":" + json + "}";
                 SupabasePlayerPlantList list = JsonUtility.FromJson<SupabasePlayerPlantList>(wrappedJson);
                 if (list != null && list.items != null && list.items.Count > 0)
                 {
-                    playerPlantData = list.items.Find(p => 
-                        !string.IsNullOrEmpty(p.player_plant_id) && 
+                    playerPlantData = list.items.Find(p =>
+                        !string.IsNullOrEmpty(p.player_plant_id) &&
                         p.player_plant_id.Trim().Equals(playerPlantId.Trim(), StringComparison.OrdinalIgnoreCase)
                     );
 
@@ -173,17 +178,20 @@ public class PlantStatus : MonoBehaviour
         ));
 
         yield return StartCoroutine(SupabaseManager.Instance.GetPlantMasterData(
-            onSpeciesSuccess: (json) => {
+            onSpeciesSuccess: (json) =>
+            {
                 string wrappedJson = "{\"items\":" + json + "}";
                 SupabasePlantSpeciesList list = JsonUtility.FromJson<SupabasePlantSpeciesList>(wrappedJson);
                 if (list != null) speciesList = list.items;
             },
-            onStagesSuccess: (json) => {
+            onStagesSuccess: (json) =>
+            {
                 string wrappedJson = "{\"items\":" + json + "}";
                 SupabasePlantStageList list = JsonUtility.FromJson<SupabasePlantStageList>(wrappedJson);
                 if (list != null) stagesList = list.items;
             },
-            onRulesSuccess: (json) => {
+            onRulesSuccess: (json) =>
+            {
                 string wrappedJson = "{\"items\":" + json + "}";
                 SupabaseEvolutionRuleList list = JsonUtility.FromJson<SupabaseEvolutionRuleList>(wrappedJson);
                 if (list != null) rulesList = list.items;
@@ -203,7 +211,17 @@ public class PlantStatus : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[PlantStatus] ⚠️ ไม่พบข้อมูลพืชใน DB จะใช้ข้อมูล Local แทน");
+            Debug.LogWarning("[PlantStatus] ⚠️ ไม่พบข้อมูลพืชใน DB ซ่อนตัวละครพืช");
+
+            playerPlantId = "";
+            plantNickname = "";
+
+            SyncCharacterVisual();
+
+            if (MainPlantStatusView.Instance != null)
+            {
+                MainPlantStatusView.Instance.UpdateUI();
+            }
         }
     }
 
@@ -248,9 +266,9 @@ public class PlantStatus : MonoBehaviour
     }
 
     public void SetupFromSupabase(
-        SupabasePlayerPlant playerPlant, 
-        List<SupabasePlantSpecies> speciesList, 
-        List<SupabasePlantStage> stagesList, 
+        SupabasePlayerPlant playerPlant,
+        List<SupabasePlantSpecies> speciesList,
+        List<SupabasePlantStage> stagesList,
         List<SupabaseEvolutionRule> rulesList)
     {
         if (playerPlant == null) return;
@@ -291,6 +309,12 @@ public class PlantStatus : MonoBehaviour
         UpdateMoistureStatus();
         SaveDataToLocalOnly();
         SyncCharacterVisual();
+
+        // ปลดล็อกร่างปัจจุบัน + ร่างก่อนหน้าทั้งหมดลง DB ทันทีที่โหลดเกมสำเร็จ
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentStageId))
+        {
+            StartCoroutine(SupabaseManager.Instance.UnlockPlantAndPredecessors(currentStageId));
+        }
     }
 
     public void RefreshPlantDataFromMaster()
@@ -336,7 +360,15 @@ public class PlantStatus : MonoBehaviour
         MCController mc = GetComponent<MCController>();
         if (mc != null)
         {
-            mc.SetStageById(currentStageId);
+            if (string.IsNullOrEmpty(playerPlantId))
+            {
+                mc.gameObject.SetActive(false);
+            }
+            else
+            {
+                mc.gameObject.SetActive(true);
+                mc.SetStageById(currentStageId);
+            }
         }
     }
 
@@ -378,6 +410,12 @@ public class PlantStatus : MonoBehaviour
         UpdateMaxNutrientsFromDB();
         SaveData();
         SyncCharacterVisual();
+
+        // ปลดล็อกร่างใหม่ + ร่างก่อนหน้าทั้งหมดลง DB เมื่อเปลี่ยนร่างสำเร็จ
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentStageId))
+        {
+            StartCoroutine(SupabaseManager.Instance.UnlockPlantAndPredecessors(currentStageId));
+        }
     }
 
     private void EvaluateStage4EvolutionRules()
@@ -422,15 +460,62 @@ public class PlantStatus : MonoBehaviour
         }
     }
 
+    // สั่งบันทึกเข้า PlantDex ทุกครั้งที่พืชเปลี่ยนร่าง/เริ่มปลูก
+    public void CheckAndRecordPlantDex(string stageId)
+    {
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(stageId))
+        {
+            StartCoroutine(SupabaseManager.Instance.UnlockPlantAndPredecessors(stageId));
+        }
+    }
+
     // 1. ฟังก์ชันรดน้ำ (Watering)
     public void WaterPlant()
     {
+        // เช็กโอกาสพืชป่วยจากการรดน้ำช่วงฝนตก/พายุ (water_damage_chance)
+        if (WeatherManager.Instance != null && WeatherManager.Instance.currentWeather != null)
+        {
+            var w = WeatherManager.Instance.currentWeather;
+            if (w.water_damage_chance > 0f && UnityEngine.Random.value <= w.water_damage_chance)
+            {
+                if (activeBuddySkillType != "PREVENT_RAIN_SICK")
+                {
+                    isSick = true;
+                    sickUntil = DateTime.UtcNow.AddHours(8).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                    Debug.LogWarning($"[PlantStatus] 🌧️ พืชป่วยจากฝน/น้ำเกิน! โอกาสติด: {w.water_damage_chance * 100}%");
+                }
+            }
+        }
+
+        // ถ้ามีสกิลบัดดี้ช่วยแก้ป่วยตอนรดน้ำ
+        if (isSick && activeBuddySkillType == "CURE_SICK_CHANCE")
+        {
+            float roll = UnityEngine.Random.value; // สุ่ม 0.0 ถึง 1.0
+            if (roll <= activeBuddySkillValue)
+            {
+                isSick = false;
+                sickUntil = "";
+                Debug.Log("[PlantStatus] 🐾 บัดดี้ช่วยรักษาอาการป่วยให้ตอนรดน้ำสำเร็จ!");
+            }
+        }
+
         if (!CanWater()) return;
 
         lastWateredAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         currentMoisture = maxMoisture;
 
-        int finalExp = Mathf.RoundToInt(baseExpFromWater * expMultiplier);
+        // คำนวณ EXP พื้นฐาน + บัฟบัดดี้ + ตัวคูณสภาพอากาศ (exp_multiplier)
+        float buddyExpBonus = (activeBuddySkillType == "WATER_PLANT_EXP") ? activeBuddySkillValue : 0f;
+        int baseExp = Mathf.RoundToInt(baseExpFromWater + buddyExpBonus);
+
+        float weatherExpMult = (WeatherManager.Instance != null && WeatherManager.Instance.currentWeather != null)
+            ? WeatherManager.Instance.currentWeather.exp_multiplier
+            : 1.0f;
+
+        int finalExp = (BuffManager.Instance != null)
+            ? Mathf.RoundToInt(BuffManager.Instance.CalculateFinalExp(baseExpFromWater, isWateringAction: true) * weatherExpMult)
+            : Mathf.RoundToInt(baseExp * weatherExpMult);
+
         int finalCoins = Mathf.RoundToInt(baseCoinsFromWater * coinMultiplier);
         int finalRelationship = Mathf.RoundToInt(baseRelationshipFromWater * relationshipMultiplier);
 
@@ -439,6 +524,9 @@ public class PlantStatus : MonoBehaviour
         relationshipScore += finalRelationship;
 
         SaveData();
+
+        // สุ่มไอเทม
+        CheckCareDrop("water");
 
         // บันทึกประวัติการรดน้ำลงตาราง care_log
         if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(playerPlantId))
@@ -467,6 +555,8 @@ public class PlantStatus : MonoBehaviour
             MainPlantStatusView.Instance.UpdateUI();
         }
     }
+    // 🟢 ใส่ตัวแปรนี้ไว้ข้างนอกฟังก์ชัน เพื่อเก็บเวลาคูลดาวน์สุ่มป่วย
+    private float nextHeatCheckTime = 0f;
 
     public void UpdateMoistureStatus()
     {
@@ -483,22 +573,98 @@ public class PlantStatus : MonoBehaviour
         float hoursPassed = (float)timePassed.TotalHours;
         if (hoursPassed < 0) hoursPassed = 0;
 
-        float decayRatePerHour = maxMoisture / Mathf.Max(0.1f, waterIntervalHours * 5f);
-        currentMoisture = Mathf.Max(0f, maxMoisture - (hoursPassed * decayRatePerHour));
-
-        if (currentMoisture <= 0f)
+        if (WeatherManager.Instance != null && WeatherManager.Instance.currentWeather != null)
         {
-            float hoursDry = hoursPassed - (waterIntervalHours * 5f);
-            if (hoursDry >= hoursDryBeforeSick && !isSick)
+            var w = WeatherManager.Instance.currentWeather;
+
+            if (w.auto_water)
+            {
+                currentMoisture = maxMoisture;
+            }
+            else
+            {
+                float dryTimeMultiplier = (w.weather_id == "WTH_HOT") ? 1.1f : 2.0f;
+                float decayRatePerHour = maxMoisture / Mathf.Max(0.1f, waterIntervalHours * dryTimeMultiplier);
+                currentMoisture = Mathf.Max(0f, maxMoisture - (hoursPassed * decayRatePerHour));
+            }
+
+            // ☀️ แก้ไขบัคสุ่มทะลุเฟรมเรต! (สุ่มแดดเผาแค่ทุกๆ 10 นาทีพอ)
+            if (w.heat_damage_chance > 0f && currentMoisture < 20f && !isSick)
+            {
+                if (Time.time >= nextHeatCheckTime)
+                {
+                    nextHeatCheckTime = Time.time + 600f; // 🟢 ตั้งเวลารอไปอีก 10 นาที (600 วินาที) ค่อยสุ่มใหม่
+
+                    if (UnityEngine.Random.value <= w.heat_damage_chance)
+                    {
+                        if (activeBuddySkillType != "PREVENT_HEAT_DAMAGE")
+                        {
+                            isSick = true;
+                            sickUntil = DateTime.UtcNow.AddHours(8).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                            relationshipScore = Mathf.Max(0, relationshipScore - 5);
+                            Debug.LogWarning($"[PlantStatus] ☀️ พืชป่วยจากแดดจัดและขาดน้ำ! โอกาสติด: {w.heat_damage_chance * 100}%");
+
+                            SaveData();
+                            if (MainPlantStatusView.Instance != null)
+                            {
+                                MainPlantStatusView.Instance.UpdateUI();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            float dryTimeMultiplier = 2f;
+            float decayRatePerHour = maxMoisture / Mathf.Max(0.1f, waterIntervalHours * dryTimeMultiplier);
+            currentMoisture = Mathf.Max(0f, maxMoisture - (hoursPassed * decayRatePerHour));
+        }
+
+        if (isSick && !string.IsNullOrEmpty(sickUntil))
+        {
+            if (TryParseDateTime(sickUntil, out DateTime recoveryTime))
+            {
+                if (DateTime.UtcNow >= recoveryTime)
+                {
+                    isSick = false;
+                    sickUntil = "";
+                    lastWateredAt = DateTime.UtcNow.AddHours(-waterIntervalHours * 1.1f).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                    Debug.Log("[PlantStatus] 🟢 หายป่วยเองตามธรรมชาติแล้ว!");
+                    SaveData();
+                    return;
+                }
+            }
+        }
+
+        if (currentMoisture <= 0f && !isSick)
+        {
+            float baseDryThreshold = waterIntervalHours * 5f;
+            float bonusDryHours = (activeBuddySkillType == "DRY_GRACE_TIME") ? activeBuddySkillValue : 0f;
+            float totalAllowedDryTime = baseDryThreshold + bonusDryHours;
+
+            float hoursDry = hoursPassed - totalAllowedDryTime;
+
+            if (hoursDry >= 24f)
             {
                 if (immunityShields > 0)
                 {
                     immunityShields--;
+                    lastWateredAt = DateTime.UtcNow.AddHours(-waterIntervalHours * 1.1f).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                    Debug.Log($"[PlantStatus] 🛡️ โล่ป้องกันทำงาน! เหลือโล่ {immunityShields} ชั้น");
+                    SaveData();
                 }
                 else
                 {
                     isSick = true;
-                    sickUntil = DateTime.UtcNow.AddHours(24).ToString("yyyy-MM-dd HH:mm:ss");
+                    sickUntil = DateTime.UtcNow.AddHours(8).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                    relationshipScore = Mathf.Max(0, relationshipScore - 5);
+                    Debug.Log($"[PlantStatus] 🥀 น้ำแห้งข้ามวัน! พืชป่วย หัก -5 แต้ม");
+                    SaveData();
+                    if (MainPlantStatusView.Instance != null)
+                    {
+                        MainPlantStatusView.Instance.UpdateUI();
+                    }
                 }
             }
         }
@@ -534,15 +700,25 @@ public class PlantStatus : MonoBehaviour
             return;
         }
 
+        // 1. ปรับให้ดึงคีย์ได้ทั้ง 2 แบบ (รองรับ effect_type ของปุ๋ย และ effect ของไอเทมพิเศษ)
+        string currentEffect = !string.IsNullOrEmpty(meta.effect_type) ? meta.effect_type : meta.effect;
+
+        // 2. ดึงค่าตัวเลขออกมารองรับทั้ง effect_value และ multiplier
         float value = meta.GetEffectValue();
+        if (value == 0f && !string.IsNullOrEmpty(meta.multiplier))
+        {
+            float.TryParse(meta.multiplier, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
 
         float gainNutrients = baseNutrientsFromFertilizer;
         float gainMoisture = 0f;
         int gainExp = baseExpFromFertilizer;
         int gainCoins = baseCoinsFromFertilizer;
         int gainRelationship = baseRelationshipFromFertilizer;
+        float rareHarvestChance = 0f;
 
-        switch (meta.effect_type)
+        // 3. เอา currentEffect มาเข้า Switch
+        switch (currentEffect)
         {
             case "all_rounder":
                 gainNutrients += baseNutrientsFromFertilizer * value;
@@ -560,13 +736,79 @@ public class PlantStatus : MonoBehaviour
                 lastWateredAt = DateTime.UtcNow.AddHours(-waterIntervalHours * 1.1f).ToString("yyyy-MM-dd HH:mm:ss");
                 break;
 
+            // 1. ปุ๋ยกลายพันธุ์ (ITEM_FERT_EVO_A/B/C/S)
+            // เป็นปุ๋ย -> ได้สารอาหารพื้นฐาน 25f + แต้มความสัมพันธ์
             case "boost_evo":
+            case "rare_harvest":
+                gainNutrients = baseNutrientsFromFertilizer;
                 gainRelationship += Mathf.RoundToInt(baseRelationshipFromFertilizer * (1f + value));
+                rareHarvestChance = value; // ฝากค่า % ดรอปแรร์ (เช่น 0.10, 0.20, 0.35, 0.50)
+                break;
+
+            // 2. โพชั่นสาหร่ายเรืองแสง (ITEM_ING_SEAWEED_POTION)
+            // เป็นโพชั่น/ส่วนผสม -> ไม่เพิ่มสารอาหารปกติ (gainNutrients = 0) แต่บวกแต้ม EXP เร่งร่างวิวัฒนาการ 5% ทันที
+            case "seaweed_potion":
+            case "mutation_boost":
+                gainNutrients = 0f; // พืชไม่อิ่มสารอาหารปกติ
+                int evoBonus = Mathf.RoundToInt(maxNutrients * value); // 5% ของ Max Nutrients
+                currentNutrients = Mathf.Min(maxNutrients, currentNutrients + evoBonus);
+                gainExp = Mathf.RoundToInt(gainExp * (1f + value));
+                Debug.Log($"[PlantStatus] 🧪 ใช้โพชั่นสาหร่าย! เพิ่มแต้มวิวัฒนาการพิเศษ +{evoBonus} (ไม่เพิ่มหลอดสารอาหารปกติ)");
                 break;
 
             case "speed_growth":
                 gainNutrients += baseNutrientsFromFertilizer * (1f + value);
                 break;
+
+            // 4. ลดเวลารดน้ำ
+            case "reduce_watering_time":
+                bool success = TryReduceWateringCooldown(value);
+                if (!success)
+                {
+                    return;
+                }
+                return;
+
+            // 5. ปุ๋ย Rotten Stink (ป่วยทันที)
+            case "rotten_stink":
+                gainNutrients += baseNutrientsFromFertilizer * value;
+                gainExp = Mathf.RoundToInt(gainExp * (1f + value));
+
+                isSick = true;
+                sickUntil = DateTime.UtcNow.AddHours(8).ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                relationshipScore = Mathf.Max(0, relationshipScore - 5);
+
+                Debug.Log("[PlantStatus] 🦨 ใช้ปุ๋ย Rotten Stink! พืชโตขึ้นนิดหน่อย แต่ป่วยทันทีและโดนหัก -5 แต้ม");
+                break;
+
+            // 6. ไอเทมย้อนร่าง
+            case "transform_back":
+                if (currentStageLevel >= 4 && isFullyGrown)
+                {
+                    currentStageLevel = 3;
+                    isFullyGrown = false;
+                    evoForm = "None";
+
+                    SupabasePlantStage stage3Data = masterStagesList.Find(s => s.species_id == speciesId && s.stage_level == 3);
+                    if (stage3Data != null)
+                    {
+                        currentStageId = stage3Data.stage_id;
+                    }
+
+                    currentNutrients = 0f;
+                    UpdateMaxNutrientsFromDB();
+
+                    SaveData();
+                    SyncCharacterVisual();
+
+                    Debug.Log($"[PlantStatus] 🔄 ย้อนร่างสำเร็จ! กลับมาที่ร่าง 3 (Stage ID: {currentStageId})");
+                }
+                else
+                {
+                    Debug.LogWarning("[PlantStatus] ⚠️ ไม่สามารถใช้ไอเทมย้อนร่างได้! พืชยังไม่ได้อยู่ร่างสุดท้าย (ขั้น 4)");
+                    return;
+                }
+                return;
         }
 
         ApplyFertilizerInternal(usedItemId, gainNutrients, gainMoisture, gainExp, gainCoins, gainRelationship, "None", 0f);
@@ -581,13 +823,23 @@ public class PlantStatus : MonoBehaviour
         int gainCoins,
         int gainRelationship,
         string buffType,
-        float buffDuration)
+        float buffDuration,
+        float customBonusChance = 0f) // โอกาสดรอปไอเทมพิเศษจากปุ๋ย
     {
-        int finalExp = Mathf.RoundToInt(gainExp * expMultiplier);
+        // ถ้ามีบัดดี้สายเร่งความเร็วเติบโต
+        float buddyGrowthBonus = (activeBuddySkillType == "GROWTH_SPEED_BOOST") ? activeBuddySkillValue : 0f;
+        float adjustedNutrients = gainNutrients * (1f + buddyGrowthBonus);
+
+        // เอา exp_multiplier จาก WeatherManager ไปคูณเพิ่ม
+        float weatherExpMult = (WeatherManager.Instance != null && WeatherManager.Instance.currentWeather != null)
+            ? WeatherManager.Instance.currentWeather.exp_multiplier
+            : 1.0f;
+
+        int finalExp = Mathf.RoundToInt(gainExp * expMultiplier * weatherExpMult);
         int finalCoins = Mathf.RoundToInt(gainCoins * coinMultiplier);
         int finalRelationship = Mathf.RoundToInt(gainRelationship * relationshipMultiplier);
 
-        currentNutrients = Mathf.Min(maxNutrients, currentNutrients + gainNutrients);
+        currentNutrients = Mathf.Min(maxNutrients, currentNutrients + adjustedNutrients);
         if (gainMoisture > 0)
         {
             currentMoisture = Mathf.Min(maxMoisture, currentMoisture + gainMoisture);
@@ -604,7 +856,10 @@ public class PlantStatus : MonoBehaviour
 
         SaveData();
 
-        // 🟢 บันทึกประวัติการใส่ปุ๋ยลงตาราง care_log
+        // สุ่มไอเทมจากการใส่ปุ๋ย
+        CheckCareDrop("fertilize", customBonusChance);
+
+        // บันทึกประวัติการใส่ปุ๋ยลงตาราง care_log
         if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(playerPlantId))
         {
             StartCoroutine(SupabaseManager.Instance.LogCareAction(
@@ -655,9 +910,47 @@ public class PlantStatus : MonoBehaviour
         currentActiveBuff = "None";
     }
 
+    public void EquipBuddyPassive(string skillType, float skillValue)
+    {
+        activeBuddySkillType = skillType;
+        activeBuddySkillValue = skillValue;
+        Debug.Log($"[PlantStatus] 🐾 เปิดใช้งานพาสซีฟบัดดี้: {skillType} (ค่าพลัง: {skillValue})");
+    }
+
+    // ฟังก์ชันสุ่มดรอปไอเทมจากการดูแลพืช (รดน้ำ / ใส่ปุ๋ย)
+    private void CheckCareDrop(string actionType, float customBonusChance = 0f)
+    {
+        float baseDropChance = 0.15f; // โอกาสพื้นฐาน 15%
+
+        // รวมโบนัสจาก Buddy Passive (ถ้ามี)
+        float buddyBonus = (activeBuddySkillType == "DOUBLE_DROP_CHANCE" || activeBuddySkillType == "ISLAND_RARE_CHANCE")
+            ? activeBuddySkillValue
+            : 0f;
+
+        // โอกาสรวมทั้งหมด = โอกาสพื้นฐาน + บัดดี้ + % จากเกรดปุ๋ย (ถ้ามี)
+        float finalDropChance = baseDropChance + buddyBonus + customBonusChance;
+
+        if (UnityEngine.Random.value <= finalDropChance)
+        {
+            Debug.Log($"[PlantStatus] 🎁 สุ่มได้ไอเทมดรอปสำเร็จ! Action: {actionType} (โอกาสรวม: {finalDropChance * 100f:F1}%)");
+
+            // เรียก MainRewardController สุ่มไอเทมตาม dropRate ใน DB โดยไม่ต้องส่งพารามิเตอร์
+            if (MainRewardController.Instance != null)
+            {
+                MainRewardController.Instance.TriggerRandomCareReward();
+            }
+            else
+            {
+                Debug.LogWarning("[PlantStatus] ⚠️ ไม่พบ MainRewardController! ไม่สามารถดรอปไอเทมได้");
+            }
+        }
+    }
+
     public bool CanWater()
     {
+        // ถ้าป่วย ห้ามรดน้ำ
         if (isSick) return false;
+
         if (string.IsNullOrWhiteSpace(lastWateredAt)) return true;
 
         DateTime lastTime;
@@ -667,6 +960,54 @@ public class PlantStatus : MonoBehaviour
         float cooldownSeconds = testModeInSeconds ? waterIntervalHours : waterIntervalHours * 3600f;
 
         return timePassed.TotalSeconds >= cooldownSeconds;
+    }
+
+    // ฟังก์ชันสำหรับไอเทมลดเวลา Cooldown รดน้ำ (reduce_watering_time)
+    public bool TryReduceWateringCooldown(float multiplier)
+    {
+        // 1. เช็กว่าพืชพร้อมรดน้ำอยู่แล้วหรือไม่ (ถ้าพร้อมแล้ว ห้ามใช้เพื่อไม่ให้เสียของ)
+        if (CanWater())
+        {
+            Debug.LogWarning("[PlantStatus] ⚠️ พืชพร้อมรดน้ำอยู่แล้ว ไม่สามารถใช้ไอเทมลดเวลาได้!");
+            return false;
+        }
+
+        // 2. คำนวณเวลา Cooldown ที่เหลืออยู่ปัจจุบัน (วินาที)
+        float remainingSeconds = GetRemainingCooldownSeconds();
+        if (remainingSeconds <= 0) return false;
+
+        // 3. คำนวณเวลาที่จะลด (เช่น เหลือ 3600 วิ * 0.3 = ลดไป 1080 วิ)
+        float secondsToReduce = remainingSeconds * multiplier;
+
+        // 4. แปลง lastWateredAt ปัจจุบัน แล้วย้อนเวลาไปในอดีตเพิ่มขึ้นตาม secondsToReduce
+        if (TryParseDateTime(lastWateredAt, out DateTime lastTime))
+        {
+            DateTime newLastWateredAt = lastTime.AddSeconds(-secondsToReduce);
+
+            // ป้องกันการย้อนเวลาเกินเวลา Cooldown ทั้งหมด
+            float maxCooldownSeconds = testModeInSeconds ? waterIntervalHours : waterIntervalHours * 3600f;
+            DateTime earliestAllowed = DateTime.UtcNow.AddSeconds(-maxCooldownSeconds);
+
+            if (newLastWateredAt < earliestAllowed)
+            {
+                newLastWateredAt = earliestAllowed;
+            }
+
+            // บันทึกเวลาใหม่ลงพืช
+            lastWateredAt = newLastWateredAt.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+            SaveData();
+
+            Debug.Log($"[PlantStatus] 🟢 ลดเวลา Cooldown สำเร็จ! ลดลง {secondsToReduce / 60f:F1} นาที");
+
+            if (MainPlantStatusView.Instance != null)
+            {
+                MainPlantStatusView.Instance.UpdateUI();
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public void SaveDataToLocalOnly()
@@ -689,6 +1030,8 @@ public class PlantStatus : MonoBehaviour
         PlayerPrefs.SetInt("Plant_ImmunityShields", immunityShields);
         PlayerPrefs.SetString("Plant_LastWateredAt", lastWateredAt);
         PlayerPrefs.SetString("Plant_PlantedAt", plantedAt);
+        PlayerPrefs.SetString("Plant_BuddySkillType", activeBuddySkillType);
+        PlayerPrefs.SetFloat("PLant_BuddySkillValue", activeBuddySkillValue);
         PlayerPrefs.Save();
     }
 
@@ -704,11 +1047,11 @@ public class PlantStatus : MonoBehaviour
 
     public void LoadData()
     {
-        playerPlantId = PlayerPrefs.GetString("Plant_PlayerPlantId", "PLANT_SLOT_01");
-        userId = PlayerPrefs.GetString("Plant_UserId", "USER_001");
+        playerPlantId = PlayerPrefs.GetString("Plant_PlayerPlantId", "");
+        userId = PlayerPrefs.GetString("Plant_UserId", "");
         speciesId = PlayerPrefs.GetString("Plant_SpeciesId", "SPEC_TOMATO");
         currentStageId = PlayerPrefs.GetString("Plant_StageId", "STAGE_TM_01");
-        plantNickname = PlayerPrefs.GetString("Plant_Nickname", "น้องมะเขือติดปีก");
+        plantNickname = PlayerPrefs.GetString("Plant_Nickname", "");
         currentStageLevel = PlayerPrefs.GetInt("Plant_StageLevel", 1);
         evoForm = PlayerPrefs.GetString("Plant_EvoForm", "None");
         isFullyGrown = PlayerPrefs.GetInt("Plant_IsFullyGrown", 0) == 1;
@@ -722,6 +1065,8 @@ public class PlantStatus : MonoBehaviour
         immunityShields = PlayerPrefs.GetInt("Plant_ImmunityShields", 0);
         lastWateredAt = PlayerPrefs.GetString("Plant_LastWateredAt", "");
         plantedAt = PlayerPrefs.GetString("Plant_PlantedAt", "");
+        activeBuddySkillType = PlayerPrefs.GetString("Plant_BuddySkillType", "NONE");
+        activeBuddySkillValue = PlayerPrefs.GetFloat("Plant_BuddySkillValue", 0f);
 
         RefreshPlantDataFromMaster();
         SyncCharacterVisual();

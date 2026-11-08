@@ -27,8 +27,17 @@ public class GameManager : MonoBehaviour
     public Sprite eggshellSprite;
     public Sprite herbSprite;
     public Sprite tomatoSeedSprite;
-    public Sprite coconutSeedSprite;
+    public Sprite coconutSprite;
     public Sprite melonSeedSprite;
+
+    [Header("Reward Item IDs (ต้องตรงกับ item_id ในตาราง item ของ Supabase)")]
+    public string soilItemId = "ITEM_SOIL";
+    public string chickenManureItemId = "ITEM_FERTILIZER_CHICKEN";
+    public string eggshellItemId = "ITEM_EGGSHELL";
+    public string herbItemId = "ITEM_HERB";
+    public string tomatoSeedItemId = "ITEM_SEED_TOMATO";
+    public string coconutSeedItemId = "ITEM_SEED_COCONUT";
+    public string melonSeedItemId = "ITEM_SEED_MELON";
 
     private int currentScore = 0;
     private bool isGameOver = false;
@@ -75,35 +84,65 @@ public class GameManager : MonoBehaviour
         if (isGameOver) return;
         isGameOver = true;
 
-        FruitSpawner spawner = FindFirstObjectByType<FruitSpawner>();
+        FruitSpawner spawner = FindAnyObjectByType<FruitSpawner>();
         if (spawner != null) spawner.enabled = false;
 
         if (finalScoreText != null) finalScoreText.text = currentScore.ToString();
 
         if (hasMergedMelon && currentScore >= 3000)
         {
-            SetRewardUI(melonSeedSprite, "เมล็ดเมล่อน x1");
+            GrantReward(melonSeedItemId, 1, melonSeedSprite, "เมล็ดเมล่อน x1");
         }
         else if (hasMergedMelon && currentScore < 3000)
         {
             int dropChance = Random.Range(0, 100);
 
-            if (dropChance < 70) SetRewardUI(tomatoSeedSprite, "เมล็ดมะเขือเทศ x1");
-            else SetRewardUI(coconutSeedSprite, "เมล็ดมะพร้าว x1");
+            if (dropChance < 70) 
+                GrantReward(tomatoSeedItemId, 1, tomatoSeedSprite, "เมล็ดมะเขือเทศ x1");
+            else 
+                GrantReward(coconutSeedItemId, 1, coconutSprite, "เมล็ดมะพร้าว x1");
         }
         else
         {
             int randomGeneral = Random.Range(0, 4);
 
-            if (randomGeneral == 0) SetRewardUI(soilSprite, "ดินโบราณ x3");
-            else if (randomGeneral == 1) SetRewardUI(chickenManureSprite, "มูลไก่หมัก x3");
-            else if (randomGeneral == 2) SetRewardUI(eggshellSprite, "เปลือกไข่บด x3");
-            else if (randomGeneral == 3) SetRewardUI(herbSprite, "สมุรไพร x3");
+            if (randomGeneral == 0) 
+                GrantReward(soilItemId, 3, soilSprite, "ดินโบราณ x3");
+            else if (randomGeneral == 1) 
+                GrantReward(chickenManureItemId, 3, chickenManureSprite, "มูลไก่หมัก x3");
+            else if (randomGeneral == 2) 
+                GrantReward(eggshellItemId, 3, eggshellSprite, "เปลือกไข่บด x3");
+            else if (randomGeneral == 3) 
+                GrantReward(herbItemId, 3, herbSprite, "สมุนไพร x3");
         }
 
         if (gameOverPopup != null)
         {
             StartCoroutine(AnimateGameOverPopup());
+        }
+    }
+
+    // ฟังก์ชันแจกรางวัล: โชว์ UI + ยิงเข้า DB
+    private void GrantReward(string itemId, int count, Sprite sprite, string itemName)
+    {
+        SetRewardUI(sprite, itemName);
+
+        if (SupabaseManager.Instance != null)
+        {
+            StartCoroutine(SupabaseManager.Instance.AddItemToInventory(itemId, count, 
+                onSuccess: () => 
+                {
+                    Debug.Log($"[MergeFruit] 🟢 ได้รับรางวัล {itemName} (ID: {itemId} x{count}) บันทึกลง DB เรียบร้อย");
+                }, 
+                onError: (error) => 
+                {
+                    Debug.LogError($"[MergeFruit] 🔴 บันทึกรางวัลลง DB ล้มเหลว: {error}");
+                }
+            ));
+        }
+        else
+        {
+            Debug.LogError("[MergeFruit] 🔴 ไม่พบ SupabaseManager.Instance ไม่สามารถมอบรางวัลลง DB ได้!");
         }
     }
 

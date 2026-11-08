@@ -11,10 +11,10 @@ public class BeachItemData
     public string itemId;   // ID ไอเทมตรงตาม Supabase
     public string itemName; // ชื่อภาษาไทย
     public Sprite itemIcon; // รูปไอเทม
-    
+
     [Header("Drop Rate Settings")]
     [Tooltip("โอกาสดรอป เช่น 0.3 = 30%, 0.25 = 25%")]
-    public float dropRate = 0.25f; 
+    public float dropRate = 0.25f;
 }
 
 // ==================== BeachShellManager Class ====================
@@ -23,15 +23,15 @@ public class BeachShellManager : MonoBehaviour
     public static BeachShellManager Instance;
 
     [Header("หอยทั้ง 4 ตำแหน่ง")]
-    public Button[] shellButtons; 
+    public Button[] shellButtons;
 
     [Header("ระบบ Reward Popup")]
-    public BeachRewardController BeachRewardController; 
-    public BeachItemData[] beachItems; 
+    public BeachRewardController BeachRewardController;
+    public BeachItemData[] beachItems;
 
     [Header("ตั้งค่า Cooldown (วินาที)")]
-    public float cooldownSeconds = 10f; 
-    public TextMeshProUGUI cooldownText; 
+    public float cooldownSeconds = 10f;
+    public TextMeshProUGUI cooldownText;
 
     private Button activeShell;
     private Coroutine shakeCoroutine;
@@ -159,7 +159,7 @@ public class BeachShellManager : MonoBehaviour
 
             if (currentEarnedItem != null)
             {
-                Debug.Log($"[BeachShellManager] 🎁 Earned Item: {currentEarnedItem.itemName} ({currentEarnedItem.itemId}) | Drop Rate: {currentEarnedItem.dropRate * 100}%");
+                Debug.Log($"[BeachShellManager] 🎁 Earned Item: {currentEarnedItem.itemName} ({currentEarnedItem.itemId}) | Drop Rate: {currentEarnedItem.dropRate * 100f}%");
 
                 ItemData rewardData = new ItemData
                 {

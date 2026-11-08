@@ -61,16 +61,17 @@ public class StaminaManager : MonoBehaviour
             return;
         }
 
-        string userId = GetCurrentUserId();
+        // เรียก GetActiveUserId()   
+        string userId = SupabaseManager.Instance != null ? SupabaseManager.Instance.GetActiveUserId() : "";
+        
         if (string.IsNullOrEmpty(userId))
         {
-            Debug.LogError("[StaminaManager] 🔴 ไม่พบ User ID สำหรับดึง Stamina!");
+            Debug.LogError("[StaminaManager] 🔴 ไม่พบ User ID สำหรับดึง Stamina! (กรุณาล็อกอินก่อน)");
             return;
         }
 
         try
         {
-            // เรียก RPC 'consume_stamina' โดยใส่ cost = 0 เพื่อเช็กค่าล่าสุด และให้ DB ช่วย Auto-Reset วันใหม่อัตโนมัติ
             bool success = await ConsumeStaminaAsync(0);
             if (!success)
             {
@@ -86,7 +87,6 @@ public class StaminaManager : MonoBehaviour
     // ==================== 2. หักค่า Stamina (ผ่าน RPC) ====================
     public async Task<bool> ConsumeStaminaAsync(int cost)
     {
-        // 🟢 โหมดทดสอบ Local
         if (useMockData)
         {
             if (currentStamina >= cost)
@@ -97,14 +97,15 @@ public class StaminaManager : MonoBehaviour
             return false;
         }
 
-        string userId = GetCurrentUserId();
+        // เรียก GetActiveUserId()   
+        string userId = SupabaseManager.Instance != null ? SupabaseManager.Instance.GetActiveUserId() : "";
+        
         if (string.IsNullOrEmpty(userId))
         {
             Debug.LogError("[StaminaManager] 🔴 ไม่พบ User ID สำหรับหัก Stamina!");
             return false;
         }
 
-        // ยิงเรียก Stored Procedure 'consume_stamina' บน Supabase
         var tcs = new TaskCompletionSource<bool>();
 
         StartCoroutine(CallConsumeStaminaRpc(userId, cost, (success, updatedStamina, message) =>
@@ -129,7 +130,6 @@ public class StaminaManager : MonoBehaviour
     // ==================== 3. Coroutine ยิง Web Request ไปยัง Supabase RPC ====================
     private IEnumerator CallConsumeStaminaRpc(string userId, int cost, Action<bool, int, string> callback)
     {
-        // ตรวจสอบ SupabaseManager
         if (SupabaseManager.Instance == null)
         {
             Debug.LogError("[StaminaManager] 🔴 SupabaseManager.Instance เป็น NULL!");
@@ -139,7 +139,6 @@ public class StaminaManager : MonoBehaviour
 
         string url = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/rpc/consume_stamina";
         
-        // Payload JSON ตรงตามพารามิเตอร์ของ Function ใน Supabase: p_user_id และ p_cost
         var requestData = new ConsumeStaminaRequest
         {
             p_user_id = userId,
@@ -164,16 +163,14 @@ public class StaminaManager : MonoBehaviour
             {
                 try
                 {
-                    // ปริ้นท์ JSON ดิบออกมาเช็กใน Console
                     Debug.Log($"[StaminaManager] 📩 Raw JSON Response: {request.downloadHandler.text}");
 
-                    // Supabase RPC ส่งค่ากลับมาเป็น Array ของ JSON Object
                     var responseList = JsonConvert.DeserializeObject<ConsumeStaminaResponse[]>(request.downloadHandler.text);
 
                     if (responseList != null && responseList.Length > 0)
                     {
                         var res = responseList[0];
-                        int actualStamina = res.GetStaminaValue(); // 🟢 ดึงค่า stamina ที่ถูกต้อง
+                        int actualStamina = res.GetStaminaValue();
 
                         callback?.Invoke(res.success, actualStamina, res.message);
                     }
@@ -194,16 +191,6 @@ public class StaminaManager : MonoBehaviour
                 callback?.Invoke(false, currentStamina, request.error);
             }
         }
-    }
-
-    // Helper ดึง User ID จาก SupabaseManager
-    private string GetCurrentUserId()
-    {
-        if (SupabaseManager.Instance != null)
-        {
-            return SupabaseManager.Instance.currentUserId;
-        }
-        return string.Empty;
     }
 
     // ==================== Data Classes สำหรับ JSON ====================
@@ -232,7 +219,6 @@ public class StaminaManager : MonoBehaviour
         [JsonProperty("message")]
         public string message;
 
-        // ดึงค่า Stamina ไม่ว่า Supabase จะส่งชื่อคีย์ตัวไหนกลับมา
         public int GetStaminaValue()
         {
             if (current_stamina != 0) return current_stamina;

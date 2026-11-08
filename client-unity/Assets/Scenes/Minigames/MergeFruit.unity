@@ -3459,8 +3459,15 @@ MonoBehaviour:
   eggshellSprite: {fileID: -4957757172245679981, guid: de448e72720077742a0effaedefb8bc5, type: 3}
   herbSprite: {fileID: 974520379904492227, guid: 7bea559de27a80342bad8d3b5457c3fa, type: 3}
   tomatoSeedSprite: {fileID: 464465025536616693, guid: 52e90e67f8c3a6d479cae17382db4676, type: 3}
-  coconutSeedSprite: {fileID: -8579632902803164214, guid: 298ef3961d5e0bd4d9325f24f66c78b8, type: 3}
+  coconutSprite: {fileID: -8579632902803164214, guid: 298ef3961d5e0bd4d9325f24f66c78b8, type: 3}
   melonSeedSprite: {fileID: 18852242346563330, guid: 22f37478600ff4845afbe985f360c8e6, type: 3}
+  soilItemId: ITEM_ING_ANCIENT_SOIL
+  chickenManureItemId: ITEM_ING_CHIC_DROP
+  eggshellItemId: ITEM_ING_EGG
+  herbItemId: ITEM_ING_HERB
+  tomatoSeedItemId: ITEM_SEED_TOMATO
+  coconutSeedItemId: ITEM_SEED_COCONUT
+  melonSeedItemId: ITEM_SEED_MELON
   hasMergedMelon: 0
 --- !u!4 &1300083473
 Transform:

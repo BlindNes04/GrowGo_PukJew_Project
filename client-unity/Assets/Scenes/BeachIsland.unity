@@ -302,7 +302,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SupabaseManager
   supabaseUrl: https://xwvqxyeybgwiaxpodnaq.supabase.co
   supabaseAnonKey: sb_publishable_14M9lB3dIwbc-eOX-LbK-w_A-3mv1UR
-  currentUserId: USER_001
+  currentUserId: 
 --- !u!4 &366024220
 Transform:
   m_ObjectHideFlags: 0
@@ -2337,7 +2337,7 @@ MonoBehaviour:
   - {fileID: 718098250}
   - {fileID: 471266194}
   - {fileID: 990114965}
-  rewardController: {fileID: 1710144019}
+  BeachRewardController: {fileID: 1710144019}
   beachItems:
   - itemId: ITEM_ING_SANDPILE
     itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22"

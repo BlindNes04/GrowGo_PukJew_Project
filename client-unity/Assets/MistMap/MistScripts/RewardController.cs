@@ -251,10 +251,10 @@ private void OnBackToStartClicked()
     }
     else
     {
-        // 🟢 1. ตัด Space หน้าหลังทิ้ง
+        // 1. ตัด Space หน้าหลังทิ้ง
         string cleanItemId = currentRewardedItemId.Trim();
 
-        // 🟢 2. พิมพ์ความยาวตัวอักษรออกมาเช็ก ('ITEM_ING_FOSSIL' ต้องได้ความยาว 15 ตัวพอดี)
+        // 2. พิมพ์ความยาวตัวอักษรออกมาเช็ก ('ITEM_ING_FOSSIL' ต้องได้ความยาว 15 ตัวพอดี)
         Debug.Log($"[MistRewardController] 🔍 ยิงไอเทม: '{cleanItemId}' (ความยาว: {cleanItemId.Length} ตัวอักษร)");
 
         SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.AddItemToInventory(

@@ -188,7 +188,7 @@ public class NourishPopupView : MonoBehaviour
             MAudioManager.instance.PlayClickSFX();
 
         // 🌿 1. สั่งบำรุงพืช (เพิ่มค่าสารอาหาร +25, EXP +25, Coins +15, Relationship +10)
-        PlantStatus plant = FindFirstObjectByType<PlantStatus>();
+        PlantStatus plant = FindAnyObjectByType<PlantStatus>();
         if (plant != null)
         {
             plant.ApplyFertilizerFromSupabase(selectedItem);

@@ -204,17 +204,71 @@ public class MainInventoryManager : MonoBehaviour
 
         SupabaseInventoryItem selectedInvItem = loadedInventory[currentSelectedItem];
         string itemId = selectedInvItem.item.item_id;
+        string itemType = selectedInvItem.item != null ? selectedInvItem.item.item_type : "";
 
-        // 💡 ถ้าเป็นเมล็ดพันธุ์ ให้เข้าสู่ฟังก์ชันปลูกพืช
+        // 1. ถ้าเป็นเมล็ดพันธุ์ -> เข้าสู่ฟังก์ชันปลูกพืช
         if (!string.IsNullOrEmpty(itemId) && itemId.StartsWith("ITEM_SEED_"))
         {
             UseSeedToPlant(itemId);
+        }
+        // 🟢 2. ถ้าเป็นปุ๋ย/ไอเทมลดเวลารดน้ำ/คูปอง -> เข้าสู่ระบบเช็กเงื่อนไขและใส่ปุ๋ย
+        else if (itemType == "fertilizer" || (!string.IsNullOrEmpty(itemId) && (itemId.StartsWith("ITEM_FERT_") || itemId.StartsWith("ITEM_COUP_"))))
+        {
+            UseFertilizerOnPlant(selectedInvItem);
         }
         else
         {
             ShowFloatingTextPopup(currentSelectedItem);
             CloseDetail();
         }
+    }
+
+    // 🟢 ฟังก์ชันกระบวนการใช้ปุ๋ย/ไอเทมกับพืช (ตรวจสอบความพร้อมของพืชก่อนหักไอเทมใน DB)
+    private void UseFertilizerOnPlant(SupabaseInventoryItem invItem)
+    {
+        if (invItem == null || invItem.item == null) return;
+
+        PlantStatus plant = FindAnyObjectByType<PlantStatus>();
+        if (plant == null || string.IsNullOrEmpty(plant.playerPlantId))
+        {
+            Debug.LogWarning("[MainInventoryManager] ⚠️ ไม่พบพืชบนแท่นหิน ไม่สามารถใช้ไอเทมได้");
+            return;
+        }
+
+        // 🛡️ ตรวจสอบเงื่อนไขเฉพาะของไอเทมล่วงหน้าก่อนยิงหักใน DB
+        ItemMetadata meta = invItem.item.metadata;
+        if (meta != null)
+        {
+            string effectName = !string.IsNullOrEmpty(meta.effect_type) ? meta.effect_type : meta.effect;
+
+            // ❌ ถ้าเป็นไอเทมลดเวลารดน้ำ แต่พืชพร้อมรดน้ำอยู่แล้ว -> ไม่ยอมให้ใช้ และไม่ตัดไอเทม
+            if (effectName == "reduce_watering_time" && plant.CanWater())
+            {
+                Debug.LogWarning("[MainInventoryManager] ⚠️ พืชพร้อมรดน้ำอยู่แล้ว ไม่จำเป็นต้องใช้ไอเทมลดเวลา!");
+                ShowFloatingTextPopup(currentSelectedItem);
+                return;
+            }
+        }
+
+        string itemId = invItem.item.item_id;
+
+        // 🟢 เช็กเงื่อนไขผ่านเรียบร้อย -> สั่งหักไอเทมออกจาก DB (-1)
+        StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
+            itemId,
+            -1,
+            onSuccess: () =>
+            {
+                Debug.Log($"[MainInventoryManager] 🟢 หักไอเทม {itemId} ใน DB สำเร็จ!");
+
+                // ส่งไอเทมไปคำนวณและแสดงผลใน PlantStatus
+                plant.ApplyFertilizerFromSupabase(invItem);
+
+                // รีเฟรช UI กระเป๋าทันที
+                FetchInventoryAndRender();
+                CloseDetail();
+            },
+            onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 หักไอเทมล้มเหลว: {err}")
+        ));
     }
 
     // 🟢 5. กระบวนการใช้เมล็ด: หักเมล็ดใน DB -> สร้าง player_plant -> รีเฟรชกระเป๋าทันที

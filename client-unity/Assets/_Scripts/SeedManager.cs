@@ -1,18 +1,13 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class SeedManager : MonoBehaviour
 {
-    // =========================================================
-    // Canvas Reference
-    // =========================================================
     [Header("Root Canvas")]
     [SerializeField] private GameObject seedCanvas;
 
-    // =========================================================
-    // UI References
-    // =========================================================
     [Header("Page 1 (Bag)")]
     [SerializeField] private GameObject bagPage;
     [SerializeField] private RectTransform bagTransform;
@@ -22,32 +17,41 @@ public class SeedManager : MonoBehaviour
     [SerializeField] private GameObject seedPage;
     [SerializeField] private RectTransform sunburstTransform;
     [SerializeField] private RectTransform seedTomatoTransform;
-    [SerializeField] private CanvasGroup contentCanvasGroup; 
+    [SerializeField] private CanvasGroup contentCanvasGroup;
+
+    [Header("Finish Button (กดยืนยันแล้วไป MainForest)")]
+    [SerializeField] private Button finishButton;
+    [SerializeField] private string targetSceneName = "MainForest";
 
     [Header("Sunburst & Shake")]
-    [SerializeField] private float rotateSpeed = 20f;       
-    [SerializeField] private float shakeAngle = 5f;         
-    [SerializeField] private float shakeSpeed = 20f;        
+    [SerializeField] private float rotateSpeed = 20f;
+    [SerializeField] private float shakeAngle = 5f;
+    [SerializeField] private float shakeSpeed = 20f;
 
     [Header("Tomato Pop Settings")]
-    [SerializeField] private float popDuration = 1f;      
-    [SerializeField] private float popOvershoot = 1.2f;    
+    [SerializeField] private float popDuration = 1f;
+    [SerializeField] private float popOvershoot = 1.2f;
 
     private Coroutine shakeCoroutine;
     private bool isTransitioning = false;
 
+    private void Awake()
+    {
+        if (finishButton != null)
+        {
+            finishButton.onClick.RemoveAllListeners();
+            finishButton.onClick.AddListener(OnFinishAndGoToForest);
+        }
+    }
+
     private void Update()
     {
-        // หมุนแสงเรื่อยๆ เมื่อเปิดหน้า SeedPage
         if (seedPage != null && seedPage.activeInHierarchy && sunburstTransform != null)
         {
             sunburstTransform.Rotate(0f, 0f, -rotateSpeed * Time.deltaTime);
         }
     }
 
-    // =========================================================
-    // Start Page 
-    // =========================================================
     public void OpenSeedReward()
     {
         if (seedCanvas != null) seedCanvas.SetActive(true);
@@ -56,7 +60,6 @@ public class SeedManager : MonoBehaviour
         bagPage.SetActive(true);
         seedPage.SetActive(false);
 
-        // เริ่มเขย่าถุงวนลูปต่อเนื่อง
         if (shakeCoroutine != null) StopCoroutine(shakeCoroutine);
         shakeCoroutine = StartCoroutine(ShakeBagRoutine());
 
@@ -67,9 +70,7 @@ public class SeedManager : MonoBehaviour
         }
     }
 
-    // Shake Animation (Bag)
-   private IEnumerator ShakeBagRoutine()
-
+    private IEnumerator ShakeBagRoutine()
     {
         if (bagTransform == null) yield break;
         Quaternion initialRotation = bagTransform.localRotation;
@@ -81,20 +82,15 @@ public class SeedManager : MonoBehaviour
                 timer += Time.deltaTime;
 
                 float zAngle = Mathf.Sin(timer * shakeSpeed) * shakeAngle;
-
                 bagTransform.localRotation = initialRotation * Quaternion.Euler(0f, 0f, zAngle);
 
                 yield return null;
-
             }
             bagTransform.localRotation = initialRotation;
             yield return new WaitForSeconds(0.8f);
         }
     }
 
-    // =========================================================
-    // UI Transition
-    // =========================================================
     public void OnTapContinue()
     {
         if (isTransitioning) return;
@@ -105,9 +101,11 @@ public class SeedManager : MonoBehaviour
     {
         isTransitioning = true;
 
-        // ซ่อนหน้าถุง เปิดหน้ามะเขือเทศ
         bagPage.SetActive(false);
         seedPage.SetActive(true);
+
+        // มอบ ITEM_SEED_TOMATO x1 เข้า DB
+        GrantSeedRewardToDB();
 
         seedTomatoTransform.localScale = Vector3.zero;
         if (contentCanvasGroup != null)
@@ -115,9 +113,7 @@ public class SeedManager : MonoBehaviour
             contentCanvasGroup.alpha = 0f;
         }
 
-        // Pop Animation (Tomato)
         float elapsed = 0f;
-
         while (elapsed < popDuration)
         {
             elapsed += Time.deltaTime;
@@ -133,9 +129,6 @@ public class SeedManager : MonoBehaviour
 
         seedTomatoTransform.localScale = Vector3.one;
 
-        // =========================================================
-        // Fade-in Sequence (Texts & Buttons)
-        // =========================================================
         if (contentCanvasGroup != null)
         {
             float fadeDuration = 0.4f;
@@ -149,5 +142,30 @@ public class SeedManager : MonoBehaviour
             }
             contentCanvasGroup.alpha = 1f;
         }
+    }
+
+    // บันทึกเมล็ดมะเขือเทศลง inventory ใน Supabase
+    private void GrantSeedRewardToDB()
+    {
+        if (SupabaseManager.Instance != null)
+        {
+            StartCoroutine(SupabaseManager.Instance.AddItemToInventory("ITEM_SEED_TOMATO", 1,
+                onSuccess: () =>
+                {
+                    Debug.Log("[SeedManager] 🟢 บันทึก ITEM_SEED_TOMATO x1 ลง DB สำเร็จ");
+                },
+                onError: (err) =>
+                {
+                    Debug.LogError($"[SeedManager] 🔴 บันทึกเมล็ดลง DB ล้มเหลว: {err}");
+                }
+            ));
+        }
+    }
+
+    // พอกดปุ่มเสร็จสิ้นในหน้า Seed ให้ไป MainForest
+    public void OnFinishAndGoToForest()
+    {
+        Debug.Log("[SeedManager] 🟢 ยืนยันรับเมล็ดพืช -> กำลังไปหน้า MainForest...");
+        SceneManager.LoadScene(targetSceneName);
     }
 }
