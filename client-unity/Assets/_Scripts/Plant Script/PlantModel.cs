@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-// 📦 1. ตาราง plant_species
+// 1. ตาราง plant_species
 [Serializable]
 public class SupabasePlantSpecies
 {
@@ -15,7 +15,7 @@ public class SupabasePlantSpecies
     public string description;
 }
 
-// 📦 2. ตาราง plant_stages
+// 2. ตาราง plant_stages
 [Serializable]
 public class SupabasePlantStage
 {
@@ -26,7 +26,7 @@ public class SupabasePlantStage
     public float required_exp;
 }
 
-// 📦 3. ตาราง evolution_rules
+// 3. ตาราง evolution_rules
 [Serializable]
 public class SupabaseEvolutionRule
 {
@@ -37,7 +37,7 @@ public class SupabaseEvolutionRule
     public float threshold_value;
 }
 
-// 📦 4. ตาราง player_plant
+// 4. ตาราง player_plant
 [Serializable]
 public class SupabasePlayerPlant
 {
