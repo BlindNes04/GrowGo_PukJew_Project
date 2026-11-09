@@ -82,6 +82,10 @@ public class GameOverController : MonoBehaviour
 
         PickRewardByScore(finalScoreVal);
         StartCoroutine(AnimateGameOverPopup());
+
+        // 📝 Behavior Log: เล่น BlockBlast จบ 1 ตา
+        if (SupabaseManager.Instance != null)
+            SupabaseManager.Instance.LogBehavior("play_block_blast", "score", finalScoreVal);
     }
 
     private void PickRewardByScore(int scoreVal)

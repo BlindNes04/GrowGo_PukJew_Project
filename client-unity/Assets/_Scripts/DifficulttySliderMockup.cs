@@ -27,6 +27,16 @@ public class DifficultySliderMockup : MonoBehaviour
         new Color(0.75f, 0.10f, 0.10f)  // แดง
     };
 
+    // 💡 ระดับที่เลือกอยู่ 0 = ง่าย, 1 = กลาง, 2 = ยาก (FertilizerMixerManager อ่านค่านี้)
+    public int SelectedDifficulty
+    {
+        get
+        {
+            if (invisibleSlider == null) return 0;
+            return Mathf.Clamp(Mathf.RoundToInt(invisibleSlider.value), 0, 2);
+        }
+    }
+
     private void Start()
     {
         if (invisibleSlider != null)

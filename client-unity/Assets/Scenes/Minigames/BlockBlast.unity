@@ -1336,17 +1336,17 @@ MonoBehaviour:
     itemName: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E38\u0E49\u0E07\u0E1A\u0E14"
     itemIcon: {fileID: 21300000, guid: 2f684a2f98f74274ab0cbd07cda355fb, type: 3}
   wateringCard30:
-    itemId: ITEM_BB_REDUCE_30
+    itemId: ITEM_COUP_REDUCE_30
     itemName: "\u0E15\u0E31\u0E4B\u0E27\u0E25\u0E14\u0E40\u0E27\u0E25\u0E32\u0E23\u0E14\u0E19\u0E49\u0E33
       30%"
     itemIcon: {fileID: 21300000, guid: 7e7f2219c3186144f901bfe40f0de24b, type: 3}
   wateringCard50:
-    itemId: ITEM_BB_REDUCE_50
+    itemId: ITEM_COUP_REDUCE_50
     itemName: "\u0E15\u0E31\u0E4B\u0E27\u0E25\u0E14\u0E40\u0E27\u0E25\u0E32\u0E23\u0E14\u0E19\u0E49\u0E33
       50%"
     itemIcon: {fileID: 21300000, guid: ee390409694b23947a71854afbdb94fb, type: 3}
   revivePotion:
-    itemId: ITEM_BB_REVIVE_POTION
+    itemId: ITEM_ING_REVIVE_POTION
     itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E23\u0E48\u0E32\u0E07"
     itemIcon: {fileID: 21300000, guid: 73e326aa99675954dad9318919101bac, type: 3}
   rotateSpeed: 20

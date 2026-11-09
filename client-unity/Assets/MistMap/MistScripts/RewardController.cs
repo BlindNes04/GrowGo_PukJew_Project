@@ -271,6 +271,10 @@ private void OnBackToStartClicked()
         ));
     }
 
+    // 📝 Behavior Log: สำรวจเกาะหมอกแล้วได้ของ 1 ครั้ง
+    if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentRewardedItemId))
+        SupabaseManager.Instance.LogBehavior("explore_island", "island", "mist", "item_id", currentRewardedItemId.Trim());
+
     if (GameFlowManager.Instance != null)
     {
         GameFlowManager.Instance.BackToStart();

@@ -240,6 +240,16 @@ public class FertilizerDexController : MonoBehaviour
         var inv = FindAnyObjectByType<MainInventoryManager>(FindObjectsInactive.Include);
         if (inv == null || inv.itemSprites == null)
         {
+            // ฉากผสมปุ๋ยไม่มี MainInventoryManager ให้ใช้รูปจาก FertilizerMixerManager > Items แทน
+            var mixer = FindAnyObjectByType<FertilizerMixerManager>(FindObjectsInactive.Include);
+            if (mixer != null && mixer.items != null)
+            {
+                foreach (var d in mixer.items)
+                    if (!string.IsNullOrEmpty(d.itemId) && d.itemSprite != null)
+                        spriteById[d.itemId] = d.itemSprite;
+                return;
+            }
+
             Debug.LogWarning("[FertilizerDex] ไม่เจอ MainInventoryManager เลยไม่มีรูปไอเทม", this);
             return;
         }

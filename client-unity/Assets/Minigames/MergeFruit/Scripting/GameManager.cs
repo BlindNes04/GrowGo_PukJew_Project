@@ -120,6 +120,10 @@ public class GameManager : MonoBehaviour
         {
             StartCoroutine(AnimateGameOverPopup());
         }
+
+        // 📝 Behavior Log: เล่น MergeFruit จบ 1 ตา
+        if (SupabaseManager.Instance != null)
+            SupabaseManager.Instance.LogBehavior("play_fruit_merge", "score", currentScore, "merged_melon", hasMergedMelon);
     }
 
     // ฟังก์ชันแจกรางวัล: โชว์ UI + ยิงเข้า DB

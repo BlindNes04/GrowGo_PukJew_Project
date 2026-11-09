@@ -159,7 +159,8 @@ public class SupabaseManager : MonoBehaviour
         }
 
         string endpoint = $"{supabaseUrl}/rest/v1/inventory?user_id=eq.{GetActiveUserId()}&item_id=eq.{itemId}";
-        string jsonBody = $"{{\"quantity\": {newQuantity}}}";
+        string nowIso = DateTime.UtcNow.ToString("o");
+        string jsonBody = $"{{\"quantity\": {newQuantity}, \"updated_at\": \"{nowIso}\"}}";
 
         using (UnityWebRequest request = new UnityWebRequest(endpoint, "PATCH"))
         {
@@ -260,7 +261,7 @@ public class SupabaseManager : MonoBehaviour
                 }
 
                 string postEndpoint = $"{supabaseUrl}/rest/v1/inventory";
-                string jsonBody = $"{{\"user_id\":\"{activeId}\",\"item_id\":\"{itemId}\",\"quantity\":{addQuantity}}}";
+                string jsonBody = $"{{\"user_id\":\"{activeId}\",\"item_id\":\"{itemId}\",\"quantity\":{addQuantity},\"updated_at\":\"{DateTime.UtcNow:o}\"}}";
 
                 using (UnityWebRequest postRequest = new UnityWebRequest(postEndpoint, "POST"))
                 {
@@ -1001,6 +1002,9 @@ public class SupabaseManager : MonoBehaviour
             if (insertReq.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"[PlantDex] 📖 ปลดล็อกพืชร่างใหม่สำเร็จ: {stageId}");
+
+                // 📝 Behavior Log: ได้ร่างพืชใหม่เข้าสมุดภาพ
+                LogBehavior("collect_species", "stage_id", stageId);
                 onSuccess?.Invoke();
             }
             else
@@ -1121,6 +1125,409 @@ public class SupabaseManager : MonoBehaviour
     private class UserCollectionData
     {
         public string stage_id;
+    }
+
+    // ==================== Crafting Log (มินิเกมผสมปุ๋ย) ====================
+    /// <summary>
+    /// บันทึกผลการผสมปุ๋ยลงตาราง crafting_log (craft_id รันต่อจากเลขสูงสุด เช่น CRAFT_009)
+    /// </summary>
+    public IEnumerator InsertCraftingLog(List<string> materialsUsed, string difficultyMode, string timingResult, int totalScore,
+        string resultGrade, string resultItemId, string recipeId, Action onSuccess = null, Action<string> onError = null)
+    {
+        int maxNum = 0;
+        string fetchEndpoint = $"{supabaseUrl}/rest/v1/crafting_log?select=craft_id";
+        using (UnityWebRequest fetchRequest = UnityWebRequest.Get(fetchEndpoint))
+        {
+            SetSupabaseHeaders(fetchRequest);
+            yield return fetchRequest.SendWebRequest();
+
+            if (fetchRequest.result == UnityWebRequest.Result.Success)
+            {
+                var rows = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(fetchRequest.downloadHandler.text);
+                if (rows != null)
+                {
+                    foreach (var row in rows)
+                    {
+                        if (row.TryGetValue("craft_id", out string id) && !string.IsNullOrEmpty(id) && id.StartsWith("CRAFT_"))
+                        {
+                            if (int.TryParse(id.Substring(6), out int n) && n > maxNum) maxNum = n;
+                        }
+                    }
+                }
+            }
+        }
+
+        var payload = new Dictionary<string, object>
+        {
+            { "craft_id", $"CRAFT_{maxNum + 1:D3}" },
+            { "user_id", GetActiveUserId() },
+            { "materials_used", materialsUsed ?? new List<string>() },
+            { "difficulty_mode", difficultyMode },
+            { "timing_result", timingResult },
+            { "total_score", totalScore },
+            { "result_grade", resultGrade },
+            { "result_item_id", resultItemId },
+            { "recipe_id", string.IsNullOrEmpty(recipeId) ? null : recipeId },
+            { "crafted_at", DateTime.UtcNow.ToString("o") }
+        };
+        string jsonBody = JsonConvert.SerializeObject(payload);
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/crafting_log", "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            request.SetRequestHeader("Prefer", "return=minimal");
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"[Supabase Success] 🟢 Logged craft {resultItemId} ({resultGrade})");
+                onSuccess?.Invoke();
+            }
+            else
+            {
+                Debug.LogError($"[Supabase Error] 🔴 Insert crafting_log failed: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+            }
+        }
+    }
+
+    /// <summary>
+    /// บันทึกว่าผู้เล่นค้นพบสูตรนี้แล้ว (ตาราง user_recipe_discovery) ถ้ามีอยู่แล้วจะข้ามไป ไม่ทับวันที่เดิม
+    /// </summary>
+    public IEnumerator UnlockRecipeDiscovery(string recipeId, Action onSuccess = null, Action<string> onError = null)
+    {
+        if (string.IsNullOrEmpty(recipeId))
+        {
+            onSuccess?.Invoke();
+            yield break;
+        }
+
+        string endpoint = $"{supabaseUrl}/rest/v1/user_recipe_discovery?on_conflict=user_id,recipe_id";
+        string jsonBody = $"{{\"user_id\":\"{GetActiveUserId()}\",\"recipe_id\":\"{recipeId}\",\"unlocked_at\":\"{DateTime.UtcNow:o}\"}}";
+
+        using (UnityWebRequest request = new UnityWebRequest(endpoint, "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            request.SetRequestHeader("Prefer", "resolution=ignore-duplicates,return=minimal");
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"[Supabase Success] 🟢 Recipe discovered: {recipeId}");
+                onSuccess?.Invoke();
+            }
+            else
+            {
+                Debug.LogError($"[Supabase Error] 🔴 Unlock recipe failed: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+            }
+        }
+    }
+
+    // ==================== Player Level / Points (เลเวลผู้เล่น + แต้ม) ====================
+    // ตาราง user : level, total_exp, flower_points, green_points, cluster_id
+    // กติกา (ตกลงกับ Pakin 2026-11-09):
+    //   - เลเวลคิดจาก total_exp ทั้งหมด ไม่มีเลเวลตัน
+    //   - จากเลเวล L ไปเลเวล L+1 ต้องใช้ EXP = L x expPerLevelStep (ค่าเริ่ม 100)
+    //     เช่น Lv1->2 ใช้ 100, Lv2->3 ใช้ 200, Lv3->4 ใช้ 300 ...
+    //   - ขึ้นเลเวลได้แต้มดอกไม้ = เลเวลใหม่ x levelUpFlowerPerLevel (ค่าเริ่ม 50)
+    //   - EXP ได้จาก: รดน้ำ/ใส่ปุ๋ย/ต้นไม้ขึ้นสเตจ (PlantStatus), ผสมปุ๋ย/มินิเกม/สำรวจเกาะ (ผ่าน LogBehavior ด้านล่าง)
+
+    [Header("⭐ Player Level Settings")]
+    public int expPerLevelStep = 100;          // EXP ที่ต้องใช้ต่อเลเวล (คูณกับเลเวลปัจจุบัน)
+    public int levelUpFlowerPerLevel = 50;     // รางวัลขึ้นเลเวล = เลเวลใหม่ x ค่านี้
+    public int expFromCraftFertilizer = 10;    // ผสมปุ๋ยเสร็จ
+    public int expFromMinigame = 10;           // เล่นมินิเกมจบ (BlockBlast, Merge Fruit)
+    public int expFromExploreIsland = 10;      // สำรวจเกาะแล้วรับของ
+
+    // ---------- ค่าของผู้เล่นที่โหลดมาเก็บไว้ (UI อ่านจากตรงนี้) ----------
+    [Header("⭐ Player Stats (โหลดจาก DB)")]
+    public string playerUsername = "";
+    public string playerTag = "";
+    public string playerClusterId = "";
+    public int playerLevel = 1;
+    public long playerTotalExp = 0;
+    public int playerFlowerPoints = 0;
+    public int playerGreenPoints = 0;
+
+    public bool playerStatsLoaded = false;
+    private bool playerStatsLoading = false;
+    private int pendingExp = 0;      // EXP ที่ได้มาก่อนโหลดข้อมูลเสร็จ (เก็บไว้บวกทีหลัง กันเขียนทับค่าใน DB)
+    private int pendingFlower = 0;
+
+    // UI ฟัง event พวกนี้เพื่ออัปเดตหน้าจอ
+    public static event Action OnPlayerStatsChanged;   // ค่าเปลี่ยน (EXP/แต้ม/เลเวล)
+    public static event Action<int> OnPlayerLevelUp;   // ขึ้นเลเวล (ส่งเลเวลใหม่)
+
+    // ใช้กับ JsonConvert (Newtonsoft) อย่างเดียว
+    private class UserStatsRow
+    {
+        public string username;
+        public string user_tag;
+        public string cluster_id;
+        // ค่าตัวเลขอาจเป็น null ใน DB เลยใช้ int?/long? และเขียนเป็น property เพื่อไม่ให้ Unity เตือน (UAC1001)
+        public int? level { get; set; }
+        public long? total_exp { get; set; }
+        public int? flower_points { get; set; }
+        public int? green_points { get; set; }
+    }
+
+    // ---------- สูตรเลเวล ----------
+    /// <summary> EXP รวมที่ต้องมีถึงจะเป็นเลเวลนี้ : step x (1+2+...+(level-1)) </summary>
+    public long GetTotalExpForLevel(int level)
+    {
+        return (long)expPerLevelStep * level * (level - 1) / 2;
+    }
+
+    /// <summary> คำนวณเลเวลจาก EXP รวม (ไล่บวกทีละเลเวลจนกว่า EXP จะไม่พอ) </summary>
+    public int GetLevelFromTotalExp(long totalExp)
+    {
+        int level = 1;
+        while (totalExp >= GetTotalExpForLevel(level + 1)) level++;
+        return level;
+    }
+
+    /// <summary> EXP ที่มีในเลเวลนี้ / EXP ที่ต้องใช้ไปเลเวลถัดไป (ใช้กับหลอด EXP) </summary>
+    public void GetLevelProgress(out long expInLevel, out long expNeeded)
+    {
+        expInLevel = playerTotalExp - GetTotalExpForLevel(playerLevel);
+        expNeeded = (long)expPerLevelStep * playerLevel;
+    }
+
+    // ---------- โหลดค่าผู้เล่นจาก DB ----------
+    public void LoadPlayerStats()
+    {
+        if (!playerStatsLoading) StartCoroutine(LoadPlayerStatsRoutine());
+    }
+
+    private IEnumerator LoadPlayerStatsRoutine()
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId)) yield break;
+        playerStatsLoading = true;
+
+        string endpoint = $"{supabaseUrl}/rest/v1/user?select=username,user_tag,cluster_id,level,total_exp,flower_points,green_points&user_id=eq.{userId}";
+        using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
+        {
+            SetSupabaseHeaders(request);
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                List<UserStatsRow> rows = JsonConvert.DeserializeObject<List<UserStatsRow>>(request.downloadHandler.text);
+                if (rows != null && rows.Count > 0)
+                {
+                    UserStatsRow row = rows[0];
+                    playerUsername = row.username ?? "";
+                    playerTag = row.user_tag ?? "";
+                    playerClusterId = row.cluster_id ?? "";
+                    playerTotalExp = row.total_exp ?? 0;
+                    playerFlowerPoints = row.flower_points ?? 0;
+                    playerGreenPoints = row.green_points ?? 0;
+                    // เลเวลคิดใหม่จาก total_exp เสมอ (ค่า level ใน DB เป็นแค่สำเนาไว้ดู)
+                    playerLevel = GetLevelFromTotalExp(playerTotalExp);
+                    playerStatsLoaded = true;
+                }
+            }
+            else
+            {
+                Debug.LogError($"[PlayerLevel] 🔴 โหลดข้อมูลผู้เล่นล้มเหลว: {request.error}");
+            }
+        }
+        playerStatsLoading = false;
+
+        // ถ้ามี EXP/แต้มค้างอยู่ระหว่างโหลด ให้บวกตอนนี้
+        if (playerStatsLoaded && (pendingExp > 0 || pendingFlower > 0))
+        {
+            int e = pendingExp, f = pendingFlower;
+            pendingExp = 0; pendingFlower = 0;
+            AddPlayerExpAndFlower(e, f);
+        }
+        else
+        {
+            OnPlayerStatsChanged?.Invoke();
+        }
+    }
+
+    // ---------- บวก EXP + แต้มดอกไม้ แล้วบันทึกลง DB ----------
+    public void AddPlayerExpAndFlower(int exp, int flower)
+    {
+        if (exp <= 0 && flower <= 0) return;
+
+        // ยังไม่ได้โหลดค่าจาก DB -> เก็บไว้ก่อน แล้วสั่งโหลด
+        if (!playerStatsLoaded)
+        {
+            pendingExp += Mathf.Max(0, exp);
+            pendingFlower += Mathf.Max(0, flower);
+            LoadPlayerStats();
+            return;
+        }
+
+        int oldLevel = playerLevel;
+        playerTotalExp += Mathf.Max(0, exp);
+        playerFlowerPoints += Mathf.Max(0, flower);
+        playerLevel = GetLevelFromTotalExp(playerTotalExp);
+
+        // ขึ้นเลเวล -> ให้รางวัลแต้มดอกไม้ทุกเลเวลที่ข้าม
+        for (int lv = oldLevel + 1; lv <= playerLevel; lv++)
+        {
+            playerFlowerPoints += lv * levelUpFlowerPerLevel;
+        }
+
+        OnPlayerStatsChanged?.Invoke();
+        if (playerLevel > oldLevel) OnPlayerLevelUp?.Invoke(playerLevel);
+
+        StartCoroutine(SavePlayerStatsRoutine());
+    }
+
+    private IEnumerator SavePlayerStatsRoutine()
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId)) yield break;
+
+        var payload = new Dictionary<string, object>
+        {
+            { "level", playerLevel },
+            { "total_exp", playerTotalExp },
+            { "flower_points", playerFlowerPoints }
+        };
+        string jsonBody = JsonConvert.SerializeObject(payload);
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/user?user_id=eq.{userId}", "PATCH"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            request.SetRequestHeader("Prefer", "return=minimal");
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+                Debug.LogError($"[PlayerLevel] 🔴 บันทึก EXP/แต้มล้มเหลว: {request.error} | {request.downloadHandler.text}");
+        }
+    }
+
+    // ---------- EXP จากกิจกรรมที่บันทึกใน behavior_log ----------
+    // เรียกจาก LogBehavior อัตโนมัติ เลยไม่ต้องไปแก้โค้ดมินิเกม/เกาะทีละไฟล์
+    private void GrantExpFromActivity(string activityType)
+    {
+        int exp = 0;
+        switch (activityType)
+        {
+            case "craft_fertilizer": exp = expFromCraftFertilizer; break;
+            case "play_block_blast":
+            case "play_fruit_merge": exp = expFromMinigame; break;
+            case "explore_island": exp = expFromExploreIsland; break;
+        }
+        if (exp > 0) AddPlayerExpAndFlower(exp, 0);
+    }
+
+    // ==================== Delete Account (ลบบัญชีผู้เล่น) ====================
+    // เรียกฟังก์ชัน delete_user_account ใน Supabase (ลบข้อมูลของผู้เล่นทุกตารางในครั้งเดียว)
+    // ลบสำเร็จแล้วล้าง id ที่จำไว้ในเครื่อง เพื่อให้กลับไปหน้าเริ่มเกมเป็นผู้เล่นใหม่
+    public IEnumerator DeleteAccount(Action onSuccess = null, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            onError?.Invoke("User ID is empty");
+            yield break;
+        }
+
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, object> { { "p_user_id", userId } });
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/rpc/delete_user_account", "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"[DeleteAccount] 🟢 ลบบัญชี {userId} สำเร็จ");
+
+                // ล้างข้อมูลผู้เล่นที่จำไว้ในเครื่อง
+                PlayerPrefs.DeleteKey("SavedUserId");
+                PlayerPrefs.Save();
+                currentUserId = "";
+                playerStatsLoaded = false;
+
+                onSuccess?.Invoke();
+            }
+            else
+            {
+                Debug.LogError($"[DeleteAccount] 🔴 ลบบัญชีล้มเหลว: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+            }
+        }
+    }
+
+    // ==================== Behavior Log (เก็บพฤติกรรมผู้เล่น) ====================
+    // ใช้ตาราง behavior_log : log_id, user_id, activity_type, timestamp, meta_data
+    // activity_type ที่ใช้ (ตรงกับข้อมูลเดิมใน DB):
+    //   play_block_blast, play_fruit_merge, craft_fertilizer, explore_island, collect_species
+    //   (water_friend_tree, submit_tree_cert ยังไม่มีระบบในเกม)
+    // วิธีเรียก: SupabaseManager.Instance.LogBehavior("play_block_blast", "score", 1200, "reward_item", "ITEM_ING_EGG");
+    //   ค่าหลังชื่อกิจกรรมใส่เป็นคู่ "ชื่อ", ค่า จะถูกเก็บลง meta_data (jsonb)
+
+    /// <summary>
+    /// สั่งบันทึกพฤติกรรม 1 ครั้ง (ยิงแล้วไม่ต้องรอผล)
+    /// </summary>
+    public void LogBehavior(string activityType, params object[] metaPairs)
+    {
+        StartCoroutine(InsertBehaviorLog(activityType, metaPairs));
+
+        // ⭐ กิจกรรมบางอย่างให้ EXP ผู้เล่นด้วย (ดูส่วน Player Level ด้านบน)
+        GrantExpFromActivity(activityType);
+    }
+
+    private IEnumerator InsertBehaviorLog(string activityType, object[] metaPairs)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(activityType)) yield break;
+
+        // แปลงคู่ "ชื่อ", ค่า ให้เป็น meta_data
+        Dictionary<string, object> meta = null;
+        if (metaPairs != null && metaPairs.Length >= 2)
+        {
+            meta = new Dictionary<string, object>();
+            for (int i = 0; i + 1 < metaPairs.Length; i += 2)
+            {
+                meta[metaPairs[i].ToString()] = metaPairs[i + 1];
+            }
+        }
+
+        // log_id = BH_ + เวลา (ถึงมิลลิวินาที) + เลขสุ่ม 3 หลัก กันซ้ำ
+        // (ไม่ไล่หาเลขล่าสุดแบบ crafting_log เพราะตารางนี้มีข้อมูลหลายแสนแถว)
+        string logId = $"BH_{DateTime.UtcNow:yyyyMMddHHmmssfff}_{UnityEngine.Random.Range(0, 1000):D3}";
+
+        var payload = new Dictionary<string, object>
+        {
+            { "log_id", logId },
+            { "user_id", userId },
+            { "activity_type", activityType },
+            { "timestamp", DateTime.UtcNow.ToString("o") },
+            { "meta_data", meta }
+        };
+        string jsonBody = JsonConvert.SerializeObject(payload);
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/behavior_log", "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            request.SetRequestHeader("Prefer", "return=minimal");
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+                Debug.Log($"[BehaviorLog] 🟢 บันทึก {activityType} ({logId})");
+            else
+                Debug.LogError($"[BehaviorLog] 🔴 บันทึก {activityType} ล้มเหลว: {request.error} | {request.downloadHandler.text}");
+        }
     }
 
     // ==================== Generic GET (ใช้กับ Plant Dex ปุ๋ย) ====================

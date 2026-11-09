@@ -183,6 +183,10 @@ public class MainInventoryManager : MonoBehaviour
         if (itemDetailBox != null)
         {
             itemDetailBox.SetActive(true);
+
+            // 📍 ให้ popup เด้งใต้ช่องที่เลือก
+            if (itemIndex < instantiatedSlots.Count && instantiatedSlots[itemIndex] != null)
+                ItemSlotUI.PlacePopupNear(itemDetailBox.transform as RectTransform, instantiatedSlots[itemIndex].transform as RectTransform);
         }
     }
 
@@ -300,6 +304,13 @@ public class MainInventoryManager : MonoBehaviour
                         // 3. รีเฟรช UI กระเป๋าทันทีเพื่อให้จำนวนไอเทมลดลง/หายไปจากหน้าจอ
                         FetchInventoryAndRender();
                         CloseDetail();
+
+                        // 4. 🔧 ถ้าบนแท่นยังไม่มีพืช (ผู้เล่นใหม่) ให้โหลดพืชที่เพิ่งปลูกขึ้นมาโชว์ทันที
+                        PlantStatus plant = FindAnyObjectByType<PlantStatus>();
+                        if (plant != null && string.IsNullOrEmpty(plant.playerPlantId))
+                        {
+                            plant.StartCoroutine("LoadAllDataFromSupabaseRoutine");
+                        }
                     },
                     onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 สร้าง player_plant ล้มเหลว: {err}")
                 ));
@@ -366,6 +377,30 @@ public class MainInventoryManager : MonoBehaviour
         {
             floatingText.gameObject.SetActive(false);
         }
+    }
+
+    // 👆 แตะนอก popup รายละเอียด (และไม่ได้แตะช่องไอเทม) = ปิด popup
+    private void Update()
+    {
+        if (itemDetailBox == null || !itemDetailBox.activeInHierarchy) return;
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        Vector2 pointer = Input.mousePosition;
+        if (IsPointerInside(itemDetailBox.transform as RectTransform, pointer)) return;
+        foreach (var slot in instantiatedSlots)
+        {
+            if (slot != null && IsPointerInside(slot.transform as RectTransform, pointer)) return; // ให้ปุ่มช่องจัดการเอง (กดซ้ำ = ปิด)
+        }
+
+        CloseDetail();
+    }
+
+    private bool IsPointerInside(RectTransform rect, Vector2 screenPoint)
+    {
+        if (rect == null) return false;
+        Canvas canvas = rect.GetComponentInParent<Canvas>();
+        Camera cam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay) ? canvas.worldCamera : null;
+        return RectTransformUtility.RectangleContainsScreenPoint(rect, screenPoint, cam);
     }
 
     public void CloseDetail()

@@ -95,6 +95,9 @@ public class PlantStatus : MonoBehaviour
     public int baseCoinsFromFertilizer = 15;
     public int baseRelationshipFromFertilizer = 10;
 
+    [Header("⭐ EXP ผู้เล่นเมื่อต้นไม้ขึ้นสเตจ")]
+    public int expFromStageUp = 50;
+
     [HideInInspector] public List<SupabasePlantSpecies> masterSpeciesList = new List<SupabasePlantSpecies>();
     [HideInInspector] public List<SupabasePlantStage> masterStagesList = new List<SupabasePlantStage>();
     [HideInInspector] public List<SupabaseEvolutionRule> masterRulesList = new List<SupabaseEvolutionRule>();
@@ -360,13 +363,20 @@ public class PlantStatus : MonoBehaviour
         MCController mc = GetComponent<MCController>();
         if (mc != null)
         {
-            if (string.IsNullOrEmpty(playerPlantId))
+            // 🔧 แก้บั๊กผู้เล่นใหม่: เดิมสั่ง SetActive(false) ทั้ง GameObject
+            //    แต่ PlantStatus อยู่บน GameObject เดียวกัน พอปิดแล้วโหลดพืชใหม่ไม่ได้ (coroutine ไม่ทำงาน)
+            //    และสคริปต์อื่นที่ใช้ FindAnyObjectByType<PlantStatus>() ก็หาไม่เจอ
+            //    เลยเปลี่ยนเป็นซ่อนแค่รูปตัวละคร + ปุ่มกดแทน
+            bool hasPlant = !string.IsNullOrEmpty(playerPlantId);
+            mc.gameObject.SetActive(true);
+
+            UnityEngine.UI.Image characterImg = mc.GetComponent<UnityEngine.UI.Image>();
+            if (characterImg != null) characterImg.enabled = hasPlant;
+            UnityEngine.UI.Button characterBtn = mc.GetComponent<UnityEngine.UI.Button>();
+            if (characterBtn != null) characterBtn.enabled = hasPlant;
+
+            if (hasPlant)
             {
-                mc.gameObject.SetActive(false);
-            }
-            else
-            {
-                mc.gameObject.SetActive(true);
                 mc.SetStageById(currentStageId);
             }
         }
@@ -411,6 +421,9 @@ public class PlantStatus : MonoBehaviour
         SaveData();
         SyncCharacterVisual();
 
+        // ⭐ ต้นไม้ขึ้นสเตจ -> ผู้เล่นได้ EXP โบนัส
+        if (SupabaseManager.Instance != null) SupabaseManager.Instance.AddPlayerExpAndFlower(expFromStageUp, 0);
+
         // ปลดล็อกร่างใหม่ + ร่างก่อนหน้าทั้งหมดลง DB เมื่อเปลี่ยนร่างสำเร็จ
         if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentStageId))
         {
@@ -420,7 +433,10 @@ public class PlantStatus : MonoBehaviour
 
     private void EvaluateStage4EvolutionRules()
     {
-        List<SupabaseEvolutionRule> speciesRules = masterRulesList.FindAll(r => r.stage_id.StartsWith($"STAGE_{speciesId.Replace("SPEC_", "")}"));
+        // ── หา rule ของพืชชนิดนี้ ──
+        // ดูจากตาราง evolution_stage ว่า stage_id ของ rule เป็นของ species นี้ไหม
+        // (เดิมเดาจากชื่อ STAGE_TOMATO แต่ id จริงเป็นตัวย่อ STAGE_TM_ เลยหาไม่เจอ)
+        List<SupabaseEvolutionRule> speciesRules = masterRulesList.FindAll(r => masterStagesList.Exists(s => s.stage_id == r.stage_id && s.species_id == speciesId));
 
         bool matchedRule = false;
 
@@ -445,18 +461,11 @@ public class PlantStatus : MonoBehaviour
             }
         }
 
+        // ── ไม่เจอ rule ที่ตรง ──
+        // เกณฑ์ร่างขั้น 4 ยึดตามตาราง evolution_rule ใน DB อย่างเดียว (ลบค่าที่ hardcode ไว้ออกแล้ว)
         if (!matchedRule)
         {
-            if (speciesId == "SPEC_TOMATO")
-            {
-                currentStageId = relationshipScore >= 80 ? "STAGE_TM_EVO_ANGEL" : "STAGE_TM_EVO_DEVIL";
-                evoForm = relationshipScore >= 80 ? "Angel" : "Devil";
-            }
-            else if (speciesId == "SPEC_COCONUT")
-            {
-                currentStageId = relationshipScore >= 85 ? "STAGE_CC_EVO_LORD" : "STAGE_CC_EVO_PIRATE";
-                evoForm = relationshipScore >= 85 ? "Lord" : "Pirate";
-            }
+            Debug.LogWarning($"[PlantStatus] ⚠️ ไม่พบ evolution_rule ที่ตรงกับ {speciesId} (relationship {relationshipScore})");
         }
     }
 
@@ -521,6 +530,9 @@ public class PlantStatus : MonoBehaviour
 
         playerEXP += finalExp;
         flowerCoins += finalCoins;
+
+        // ⭐ บันทึก EXP ผู้เล่น + แต้มดอกไม้ ลงตาราง user (คิดเลเวลใน SupabaseManager)
+        if (SupabaseManager.Instance != null) SupabaseManager.Instance.AddPlayerExpAndFlower(finalExp, finalCoins);
         relationshipScore += finalRelationship;
 
         SaveData();
@@ -847,6 +859,9 @@ public class PlantStatus : MonoBehaviour
 
         playerEXP += finalExp;
         flowerCoins += finalCoins;
+
+        // ⭐ บันทึก EXP ผู้เล่น + แต้มดอกไม้ ลงตาราง user (คิดเลเวลใน SupabaseManager)
+        if (SupabaseManager.Instance != null) SupabaseManager.Instance.AddPlayerExpAndFlower(finalExp, finalCoins);
         relationshipScore += finalRelationship;
 
         if (!string.IsNullOrEmpty(buffType) && buffType != "None" && buffDuration > 0)

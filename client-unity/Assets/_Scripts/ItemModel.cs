@@ -9,6 +9,7 @@ public class ItemMetadata
     public string category;        // เช่น "cat_all", "cat_heal", "cat_evo", "cat_growth"
     public string effect_type;     // เช่น "all_rounder", "cure_protect", "boost_evo", "speed_growth"
     public string effect_value;    // ใช้ string เพื่อรองรับทั้ง "2" และ 0.15 ใน DB
+    public string score;           // คะแนนวัตถุดิบ ใช้คิดเกรดตอนผสมปุ๋ย (silver 1, gold 2, rainbow 5)
 
     // 💡 ฟังก์ชันแปลงค่าเป็น float อัตโนมัติ
     public float GetEffectValue()
@@ -18,6 +19,14 @@ public class ItemMetadata
             return val;
         }
         return 0f;
+    }
+
+    // 💡 แปลงคะแนนวัตถุดิบเป็น int (ไม่มีค่า = 0)
+    public int GetScore()
+    {
+        if (int.TryParse(score, out int val)) return val;
+        if (float.TryParse(score, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float f)) return UnityEngine.Mathf.RoundToInt(f);
+        return 0;
     }
 }
 

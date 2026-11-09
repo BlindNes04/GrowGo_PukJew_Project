@@ -156,7 +156,27 @@ public class NourishPopupView : MonoBehaviour
         if (itemDetailBox != null)
         {
             itemDetailBox.SetActive(true);
+
+            // 📍 ให้ popup เด้งใต้ช่องที่เลือก
+            if (itemIndex < instantiatedSlots.Count && instantiatedSlots[itemIndex] != null)
+                ItemSlotUI.PlacePopupNear(itemDetailBox.transform as RectTransform, instantiatedSlots[itemIndex].transform as RectTransform);
         }
+    }
+
+    // 👆 แตะนอก popup รายละเอียด (และไม่ได้แตะช่องไอเทม) = ปิด popup
+    private void Update()
+    {
+        if (itemDetailBox == null || !itemDetailBox.activeInHierarchy) return;
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        Vector2 pointer = Input.mousePosition;
+        if (ItemSlotUI.IsPointerInside(itemDetailBox.transform as RectTransform, pointer)) return;
+        foreach (var slot in instantiatedSlots)
+        {
+            if (slot != null && ItemSlotUI.IsPointerInside(slot.transform as RectTransform, pointer)) return;
+        }
+
+        CloseDetail();
     }
 
     // 🔘 4. เมื่อกดปุ่ม "ใช้" ปุ๋ย

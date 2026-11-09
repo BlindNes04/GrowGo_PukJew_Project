@@ -261,6 +261,10 @@ public class BeachRewardController : MonoBehaviour
             ));
         }
 
+        // 📝 Behavior Log: สำรวจเกาะชายหาดแล้วได้ของ 1 ครั้ง
+        if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentRewardedItemId))
+            SupabaseManager.Instance.LogBehavior("explore_island", "island", "beach", "item_id", currentRewardedItemId);
+
         // แจ้ง BeachShellManager ให้เริ่มนับ Cooldown
         if (BeachShellManager.Instance != null)
         {
