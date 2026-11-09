@@ -338,7 +338,9 @@ public class SupabaseManager : MonoBehaviour
                 $"\"plant_nickname\":\"{nickname}\"," +
                 $"\"current_exp\":0," +
                 $"\"relationship_score\":0," +
-                $"\"last_watered_at\":\"{nowIso}\"," +
+                // 🔧 แก้บั๊ก: เดิมใส่เวลาปัจจุบัน ทำให้ต้นที่เพิ่งปลูกเหมือนถูกรดน้ำไปแล้ว (ความชื้นเต็ม + ติดคูลดาวน์)
+                //    ใส่ null = ยังไม่เคยรดน้ำ ผู้เล่นต้องกดรดน้ำเองครั้งแรก
+                $"\"last_watered_at\":null," +
                 $"\"is_fully_grown\":false," +
                 $"\"is_sick\":false," +
                 $"\"sick_until\":null," +

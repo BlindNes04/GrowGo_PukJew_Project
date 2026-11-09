@@ -102,6 +102,12 @@ public class PlantStatus : MonoBehaviour
     [HideInInspector] public List<SupabasePlantStage> masterStagesList = new List<SupabasePlantStage>();
     [HideInInspector] public List<SupabaseEvolutionRule> masterRulesList = new List<SupabaseEvolutionRule>();
 
+    // 🍒 Cherry: ค่าคงที่ + ตัวอ้างอิง popup เปลี่ยนสายพันธุ์ (ถ้าไม่ลากใส่ จะหาเองตอนเริ่ม)
+    private const string CHERRY_SPECIES_ID = "SPEC_CHERRY";
+    private const string CHERRY_DEFAULT_EVO_STAGE = "STAGE_CH_EVO_LILY";
+    [Header("🍒 Cherry")]
+    public CherryFormPopup cherryFormPopup;
+
     void Awake()
     {
         LoadData();
@@ -380,6 +386,48 @@ public class PlantStatus : MonoBehaviour
                 mc.SetStageById(currentStageId);
             }
         }
+
+        // 🍒 อัปเดตปุ่มเปลี่ยนสายพันธุ์ Cherry (โชว์เฉพาะตอนเลี้ยง Cherry + รูป seed ตามร่าง)
+        if (cherryFormPopup == null) cherryFormPopup = FindAnyObjectByType<CherryFormPopup>(FindObjectsInactive.Include);
+        if (cherryFormPopup != null) cherryFormPopup.RefreshCherryButton(this);
+    }
+
+    // ==================== 🍒 Cherry: เปลี่ยนสายพันธุ์ร่าง 4 ====================
+    // เรียกจาก CherryFormPopup ตอนผู้เล่นกดเลือกร่าง (LILY / SAKURA / VIOLET)
+    // เปลี่ยนได้ตลอด ไม่จำกัดจำนวนครั้ง แต่ต้องเป็น Cherry ที่ถึงขั้น 4 แล้วเท่านั้น
+    public bool IsCherryAtStage4()
+    {
+        return speciesId == CHERRY_SPECIES_ID && currentStageLevel >= 4 && !string.IsNullOrEmpty(playerPlantId);
+    }
+
+    public void ChangeCherryForm(string newStageId)
+    {
+        if (!IsCherryAtStage4())
+        {
+            Debug.LogWarning("[PlantStatus] ⚠️ เปลี่ยนสายพันธุ์ไม่ได้: ต้องเป็น Cherry ที่ถึงขั้น 4 แล้ว");
+            return;
+        }
+
+        // เช็กว่าร่างที่เลือกเป็นร่างขั้น 4 ของ Cherry จริงในตาราง evolution_stage
+        SupabasePlantStage targetStage = masterStagesList.Find(s => s.stage_id == newStageId);
+        if (targetStage == null || targetStage.species_id != CHERRY_SPECIES_ID || targetStage.stage_level != 4)
+        {
+            Debug.LogWarning($"[PlantStatus] ⚠️ stageId '{newStageId}' ไม่ใช่ร่างขั้น 4 ของ Cherry");
+            return;
+        }
+
+        if (currentStageId == newStageId) return; // เป็นร่างนี้อยู่แล้ว
+
+        currentStageId = newStageId;
+
+        // บันทึก (stage_id ใน player_plant) + เปลี่ยนรูปตัวละคร
+        SaveData();
+        SyncCharacterVisual();
+
+        // ปลดล็อกร่างนี้ใน Plant Dex (ปลดเฉพาะร่างที่เคยเปลี่ยนเป็น)
+        CheckAndRecordPlantDex(currentStageId);
+
+        Debug.Log($"[PlantStatus] 🍒 เปลี่ยนสายพันธุ์ Cherry เป็น {currentStageId}");
     }
 
     public void CheckEvolution()
@@ -433,6 +481,15 @@ public class PlantStatus : MonoBehaviour
 
     private void EvaluateStage4EvolutionRules()
     {
+        // ── 🍒 Cherry: ไม่ใช้ evolution_rule (ไม่เช็กความสัมพันธ์) ──
+        // ถึงขั้น 4 แล้วเป็นร่าง LILY ก่อนเสมอ ผู้เล่นค่อยไปเปลี่ยนเป็น SAKURA/VIOLET เองในหน้า popup สายพันธุ์
+        if (speciesId == CHERRY_SPECIES_ID)
+        {
+            currentStageId = CHERRY_DEFAULT_EVO_STAGE;
+            evoForm = "None";
+            return;
+        }
+
         // ── หา rule ของพืชชนิดนี้ ──
         // ดูจากตาราง evolution_stage ว่า stage_id ของ rule เป็นของ species นี้ไหม
         // (เดิมเดาจากชื่อ STAGE_TOMATO แต่ id จริงเป็นตัวย่อ STAGE_TM_ เลยหาไม่เจอ)
