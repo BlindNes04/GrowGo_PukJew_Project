@@ -17,6 +17,8 @@ public class SnapToggle : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
     [Header("Settings")]
     public float snapSpeed = 22f;        // เพิ่มสปีดดีดเข้ามุมให้ไวทันใจ ไม่หนืด
     public bool isOn = false;
+    [Tooltip("ติ๊ก = สวิตช์เปิด/ปิด (ดีดเข้ามุม) | ไม่ติ๊ก = สไลเดอร์ปกติ เลื่อนได้ 0-100% เช่น ปรับเสียง")]
+    public bool snapToEnds = true;
 
     private Vector2 pointerDownPos;
     private bool isDragging = false;
@@ -33,6 +35,9 @@ public class SnapToggle : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
 
     private void Start()
     {
+        // โหมดสไลเดอร์ปกติ : ไม่บังคับค่า แค่วาดแถบสีตามค่าปัจจุบัน
+        if (!snapToEnds) { UpdateFillMask(slider.value); return; }
+
         SetState(isOn, instant: true);
     }
 
@@ -53,6 +58,9 @@ public class SnapToggle : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        // โหมดสไลเดอร์ปกติ : ปล่อยนิ้วตรงไหนค่าก็อยู่ตรงนั้น ไม่ดีด
+        if (!snapToEnds) { isDragging = false; return; }
+
         if (isDragging || eventData.dragging)
         {
             bool targetState = slider.value >= 0.5f;

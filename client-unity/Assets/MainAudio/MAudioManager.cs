@@ -15,12 +15,20 @@ public class MAudioManager : MonoBehaviour
     [Header("SFX Clips")]
     public AudioClip clickSFX;   // 💡 เพิ่มช่องใส่ไฟล์เสียงกดปุ่ม (Click SFX) กลับมาให้แล้วครับ
 
+    [Header("🔊 ระดับเสียง (0 = เงียบ, 1 = 100%) บันทึกไว้ในเครื่อง")]
+    [Range(0f, 1f)] public float musicVolume = 1f;
+    [Range(0f, 1f)] public float sfxVolume = 1f;
+
     void Awake()
     {
         if (instance == null)
         {
             instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // โหลดระดับเสียงที่ผู้เล่นตั้งไว้ครั้งก่อน
+            SetMusicVolume(PlayerPrefs.GetFloat("MusicVolume", 1f));
+            SetSfxVolume(PlayerPrefs.GetFloat("SfxVolume", 1f));
         }
         else
         {
@@ -80,6 +88,21 @@ public class MAudioManager : MonoBehaviour
         {
             sfxSource.PlayOneShot(clip);
         }
+    }
+
+    // ==================== ปรับระดับเสียง (เรียกจากสไลเดอร์ในหน้าตั้งค่า) ====================
+    public void SetMusicVolume(float value)
+    {
+        musicVolume = Mathf.Clamp01(value);
+        if (bgmSource != null) bgmSource.volume = musicVolume;
+        PlayerPrefs.SetFloat("MusicVolume", musicVolume);
+    }
+
+    public void SetSfxVolume(float value)
+    {
+        sfxVolume = Mathf.Clamp01(value);
+        if (sfxSource != null) sfxSource.volume = sfxVolume;
+        PlayerPrefs.SetFloat("SfxVolume", sfxVolume);
     }
 
     // 💡 ฟังก์ชันเล่นเสียงคลิกปุ่ม (สามารถเอาไปผูกกับ Button OnClick ได้เลย)

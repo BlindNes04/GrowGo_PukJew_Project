@@ -1425,6 +1425,42 @@ public class SupabaseManager : MonoBehaviour
         if (exp > 0) AddPlayerExpAndFlower(exp, 0);
     }
 
+    // ==================== Update Account (แก้ชื่อ / รหัสผ่าน ในหน้าตั้งค่า) ====================
+    // column = "username" หรือ "password"
+    // ถ้าชื่อซ้ำกับคนอื่น DB จะตอบ 409 (ตาราง user ตั้ง username เป็น UNIQUE ไว้) -> ส่ง "duplicate" กลับไป
+    public IEnumerator UpdateUserField(string column, string value, Action onSuccess = null, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId)) { onError?.Invoke("User ID is empty"); yield break; }
+
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, object> { { column, value } });
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/user?user_id=eq.{userId}", "PATCH"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            request.SetRequestHeader("Prefer", "return=minimal");
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                // เปลี่ยนชื่อแล้ว ให้แถบซ้ายบน/ป๊อปอัปโปรไฟล์อัปเดตด้วย
+                if (column == "username")
+                {
+                    playerUsername = value;
+                    OnPlayerStatsChanged?.Invoke();
+                }
+                onSuccess?.Invoke();
+            }
+            else
+            {
+                Debug.LogError($"[UpdateAccount] 🔴 แก้ {column} ล้มเหลว: {request.responseCode} {request.downloadHandler.text}");
+                onError?.Invoke(request.responseCode == 409 ? "duplicate" : request.error);
+            }
+        }
+    }
+
     // ==================== Delete Account (ลบบัญชีผู้เล่น) ====================
     // เรียกฟังก์ชัน delete_user_account ใน Supabase (ลบข้อมูลของผู้เล่นทุกตารางในครั้งเดียว)
     // ลบสำเร็จแล้วล้าง id ที่จำไว้ในเครื่อง เพื่อให้กลับไปหน้าเริ่มเกมเป็นผู้เล่นใหม่
