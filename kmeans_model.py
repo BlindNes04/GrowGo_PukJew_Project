@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
-log_df = pd.read_csv('behaviour_log.csv')
+log_df = pd.read_csv('behavior_log.csv')
 
 # Feature Engineering
 act_mapping = {

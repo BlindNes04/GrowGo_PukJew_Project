@@ -8,5 +8,4 @@ venv/
 .venv/
 
 # Model Files & Large Datasets
-*.joblib
 *.csv
