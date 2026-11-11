@@ -46,7 +46,7 @@ public class MainMenuManager : MonoBehaviour
         if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
         if (loginPanel != null) loginPanel.SetActive(false);
 
-        // 🟢 ดึง ID ที่เคยล็อกอินค้างไว้ในเครื่อง (ถ้ามี)
+        // ดึง ID ที่เคยล็อกอินค้างไว้ในเครื่อง (ถ้ามี)
         string savedUserId = PlayerPrefs.GetString("SavedUserId", "");
         if (!string.IsNullOrEmpty(savedUserId) && SupabaseManager.Instance != null)
         {
@@ -93,13 +93,12 @@ public class MainMenuManager : MonoBehaviour
         StartCoroutine(SupabaseManager.Instance.GetUserBuddyId(
             onResult: (buddyId) =>
             {
-                // ถ้า buddy_id เป็น null หรือ empty แสดงว่าเป็นผู้เล่นใหม่ ให้ไปทำ Quiz
+                // เช็ค buddy_id
                 if (string.IsNullOrEmpty(buddyId))
                 {
                     Debug.Log("[MainMenu] 🟢 ผู้เล่นใหม่ยังไม่มี Buddy -> ไปหน้า Quiz");
                     SceneManager.LoadScene("Quiz");
                 }
-                // ถ้ามี buddy_id แล้ว แสดงว่าเคยทำ Quiz แล้ว ให้ข้ามไปหน้า MainForest
                 else
                 {
                     Debug.Log($"[MainMenu] 🟢 ผู้เล่นมี Buddy แล้ว ({buddyId}) -> ไปหน้า MainForest");
@@ -152,7 +151,7 @@ public class MainMenuManager : MonoBehaviour
         string identifier = loginUsernameInput != null ? loginUsernameInput.text.Trim() : "";
         string password = loginPasswordInput != null ? loginPasswordInput.text : "";
 
-        // 🛑 เช็กความถูกต้องของ Input
+        // เช็กความถูกต้องของ Input
         if (string.IsNullOrEmpty(identifier))
         {
             ShowStatus(loginStatusText, "กรุณากรอกชื่อผู้ใช้หรืออีเมล!", Color.red);
@@ -174,7 +173,7 @@ public class MainMenuManager : MonoBehaviour
 
     private IEnumerator LoginCoroutine(string identifier, string password)
     {
-        // 🟢 ค้นหาด้วย user_id หรือ email ที่ตรงกับ identifier ที่กรอกมา
+        // ค้นหาด้วย user_id หรือ email ที่ตรงกับ identifier ที่กรอกมา
         string encodedIdentifier = UnityWebRequest.EscapeURL(identifier);
         string url = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,password&or=(user_id.eq.{encodedIdentifier},email.eq.{encodedIdentifier})";
 
@@ -197,7 +196,7 @@ public class MainMenuManager : MonoBehaviour
                     var user = users[0];
                     string dbPassword = user.ContainsKey("password") ? user["password"] : "";
 
-                    // 🛑 เช็กรหัสผ่านว่าตรงกับใน DB หรือไม่
+                    // เช็กรหัสผ่านว่าตรงกับใน DB หรือไม่
                     if (dbPassword == password)
                     {
                         string userId = user["user_id"];
@@ -217,13 +216,13 @@ public class MainMenuManager : MonoBehaviour
                     }
                     else
                     {
-                        // 🛑 กรณีรหัสผ่านไม่ตรง
+                        // กรณีรหัสผ่านไม่ตรง
                         ShowStatus(loginStatusText, "รหัสผ่านไม่ถูกต้อง!", Color.red);
                     }
                 }
                 else
                 {
-                    // 🛑 ไม่พบ User ID หรือ Email นี้ใน DB
+                    // ไม่พบ User ID หรือ Email นี้ใน DB
                     ShowStatus(loginStatusText, "ไม่พบชื่อผู้ใช้หรืออีเมลนี้!", Color.red);
                 }
             }
@@ -282,7 +281,7 @@ public class MainMenuManager : MonoBehaviour
 
     private IEnumerator RegisterCoroutine(string username, string email, string password)
     {
-        // 🔍 1. เช็กก่อนว่ามี ID นี้อยู่ใน DB หรือยัง
+        // 1. เช็กก่อนว่ามี ID นี้อยู่ใน DB หรือยัง
         string checkUrl = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/user?select=user_id&user_id=eq.{UnityWebRequest.EscapeURL(username)}";
 
         using (UnityWebRequest checkReq = UnityWebRequest.Get(checkUrl))
@@ -309,7 +308,7 @@ public class MainMenuManager : MonoBehaviour
             }
         }
 
-        // 🟢 2. สุ่ม user_tag ที่ไม่ซ้ำกับใครใน DB
+        // 2. สุ่ม user_tag ที่ไม่ซ้ำกับใครใน DB
         string newUserTag = "";
         bool isTagUnique = false;
         int safetyLoop = 0;
@@ -345,7 +344,7 @@ public class MainMenuManager : MonoBehaviour
             newUserTag = $"#{UnityEngine.Random.Range(10000, 99999)}";
         }
 
-        // 🟢 3. บันทึกข้อมูลลงตาราง user
+        // 3. บันทึกข้อมูลลงตาราง user
         string fixedUserId = username;
         string nowIso = DateTime.UtcNow.ToString("o");
 
