@@ -1,0 +1,29 @@
+# ===== อัปเดตฉายาผู้เล่นด้วย K-means วันละครั้ง =====
+name: Update player titles (K-means)
+
+on:
+  # --- รันเองทุกวัน เที่ยงคืนเวลาไทย (17:00 UTC เพราะไทยเร็วกว่า UTC 7 ชม.) ---
+  schedule:
+    - cron: "0 17 * * *"
+  # --- ปุ่ม "Run workflow" ไว้กดรันทันที เช่นตอนเดโม ---
+  workflow_dispatch:
+
+jobs:
+  update-titles:
+    runs-on: ubuntu-latest
+    steps:
+      # --- 1. ดึงโค้ด K-means จาก branch kmeans ---
+      - uses: actions/checkout@v4
+        with:
+          ref: kmeans
+
+      # --- 2. ติดตั้ง Python และไลบรารีตาม requirements.txt ---
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      # --- 3. รันสคริปต์: ดึง behavior_log -> จัดกลุ่ม -> เขียน user.cluster_id ---
+      - run: python update_supabase.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
