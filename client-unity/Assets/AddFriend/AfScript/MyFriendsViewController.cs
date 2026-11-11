@@ -18,7 +18,6 @@ public class MyFriendsViewController : MonoBehaviour
     public Button searchButton;
 
     // ==================== Private Variables ====================
-    private Dictionary<string, Sprite> buddySpriteDict = new Dictionary<string, Sprite>();
     private List<UserData> acceptedFriendsList = new List<UserData>();
     private Dictionary<string, string> friendToFriendshipIdMap = new Dictionary<string, string>();
 
@@ -81,9 +80,11 @@ public class MyFriendsViewController : MonoBehaviour
         if (acceptedFriendIds.Count == 0) yield break;
 
         // Step 2: Fetch user profile table
+        // 🤝 ดึงเฉพาะ user ที่เป็นเพื่อน (เดิมดึงทั้งตาราง แล้วโดนตัดที่ 1000 แถว เพื่อนบางคนเลยหาย)
         yield return StartCoroutine(SupabaseManager.Instance.GetAllUsers(
             (json) => { allUsers = JsonConvert.DeserializeObject<List<UserData>>(json); },
-            (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); }
+            (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); },
+            acceptedFriendIds.ToList()
         ));
 
         // Step 3: Filter accepted user profiles
@@ -92,6 +93,9 @@ public class MyFriendsViewController : MonoBehaviour
             acceptedFriendsList = allUsers
                 .Where(u => acceptedFriendIds.Contains(u.userId))
                 .ToList();
+
+            // รอโหลดตารางบัดดี้ (ใช้ทำรูปโปรไฟล์) ให้เสร็จก่อนสร้างรายการ
+            yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
 
             PopulateList(acceptedFriendsList);
         }
@@ -123,9 +127,15 @@ public class MyFriendsViewController : MonoBehaviour
     // ==================== Action Callbacks ====================
 
     // Callback for visiting friend island
+    // 🤝 เยี่ยมสวนเพื่อน: ส่งลิสต์เพื่อนทั้งหมด + ลำดับของคนที่กด ไปให้ FriendVisitController
+    //    (ปุ่ม "ไปบ้านถัดไป" ในหน้าเยี่ยมจะวนตามลิสต์นี้) แล้วเปิดฉาก FriendVisit
     private void OnVisitFriendClicked(string friendUserId)
     {
         Debug.Log($"[Social] 🟢 Visit Friend Triggered for User ID: {friendUserId}");
+
+        FriendVisitController.friendIdList = acceptedFriendsList.Select(u => u.userId).ToList();
+        FriendVisitController.currentFriendIndex = Mathf.Max(0, FriendVisitController.friendIdList.IndexOf(friendUserId));
+        UnityEngine.SceneManagement.SceneManager.LoadScene(FriendVisitController.SCENE_NAME);
     }
 
     // Callback for deleting friendship
@@ -168,21 +178,16 @@ public class MyFriendsViewController : MonoBehaviour
         }
     }
 
+    // 🤝 รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น (16 แบบตาม MBTI) ดูส่วน Buddy Avatar ใน SupabaseManager
+    //    (เดิมโหลดจาก Resources/Sprites/Buddies ซึ่งไม่มีโฟลเดอร์นี้ รูปเลยไม่เคยขึ้น)
     private Sprite GetAvatarSprite(string buddyId)
     {
-        if (!string.IsNullOrEmpty(buddyId) && buddySpriteDict.ContainsKey(buddyId.ToUpper()))
-            return buddySpriteDict[buddyId.ToUpper()];
-
-        return null;
+        return SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);
     }
 
     private void LoadBuddySprites()
     {
-        Sprite[] loadedSprites = Resources.LoadAll<Sprite>("Sprites/Buddies");
-        foreach (var sprite in loadedSprites)
-        {
-            buddySpriteDict[sprite.name.ToUpper()] = sprite;
-        }
+        StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
     }
 
     private void ClearContent()

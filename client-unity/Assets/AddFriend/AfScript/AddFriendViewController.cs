@@ -18,7 +18,6 @@ public class AddFriendViewController : MonoBehaviour
     public Button searchButton;             // ลากปุ่มแว่นขยายมาใส่
     public Button friendReqButton;          // ลากปุ่ม คำขอเป็นเพื่อน มาใส่
 
-    private Dictionary<string, Sprite> buddySpriteDict = new Dictionary<string, Sprite>();
 
     void Start()
     {
@@ -71,11 +70,16 @@ public class AddFriendViewController : MonoBehaviour
             (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); }
         ));
 
+        // รอโหลดตารางบัดดี้ (ใช้ทำรูปโปรไฟล์) ให้เสร็จก่อนสร้างรายการ
+        yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
+
         // Step C: กรองและสปอว์น Prefab แสดงบน UI
+        // 🤝 สุ่มลำดับก่อนหยิบ 10 คน (เดิมได้ 10 คนแรกของตารางเสมอ ทุกคนเห็นชุดเดิม)
         if (allUsers != null)
         {
             var recommendedUsers = allUsers
                 .Where(u => !excludedUserIds.Contains(u.userId))
+                .OrderBy(u => UnityEngine.Random.value)
                 .Take(10)
                 .ToList();
 
@@ -100,19 +104,43 @@ public class AddFriendViewController : MonoBehaviour
     private IEnumerator SearchUserRoutine(string query)
     {
         string currentUserId = SupabaseManager.Instance.currentUserId;
+        List<UserData> searchResults = null;
+        List<FriendshipData> friendships = null;
 
         yield return StartCoroutine(SupabaseManager.Instance.SearchUser(query,
-            (json) =>
-            {
-                List<UserData> searchResults = JsonConvert.DeserializeObject<List<UserData>>(json);
-                if (searchResults != null)
-                {
-                    var filtered = searchResults.Where(u => u.userId != currentUserId).ToList();
-                    PopulateList(filtered);
-                }
-            },
+            (json) => { searchResults = JsonConvert.DeserializeObject<List<UserData>>(json); },
             (error) => { Debug.LogError($"[Social] Search Error: {error}"); }
         ));
+        if (searchResults == null) yield break;
+
+        // 🤝 ตัดคนที่เป็นเพื่อนกันแล้ว และคนที่เราส่งคำขอไปแล้วออก (เดิมกดส่งซ้ำได้ แล้ว error 409)
+        //    คนที่ส่งคำขอมาหาเรายังโชว์อยู่ กดแอด = เป็นเพื่อนกันทันที (DB auto accept)
+        yield return StartCoroutine(SupabaseManager.Instance.GetFriendships(
+            (json) => { friendships = JsonConvert.DeserializeObject<List<FriendshipData>>(json); },
+            (error) => { Debug.LogError($"[Social] Get Friendships Error: {error}"); }
+        ));
+
+        HashSet<string> hiddenUserIds = new HashSet<string> { currentUserId };
+        if (friendships != null)
+        {
+            foreach (var f in friendships)
+            {
+                bool iAmRequester = f.requesterId == currentUserId;
+                string otherId = iAmRequester ? f.addresseeId : f.requesterId;
+                if (f.status == "accepted") hiddenUserIds.Add(otherId);              // เป็นเพื่อนแล้ว
+                else if (f.status == "pending" && iAmRequester) hiddenUserIds.Add(otherId); // เราส่งไปแล้ว
+            }
+        }
+
+        yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
+        // 🤝 คนที่ id / ชื่อ / แท็ก ตรงกับคำค้นเป๊ะๆ ขึ้นก่อน ที่เหลือเรียงตามเดิม
+        string kw = query.Trim().TrimStart('#').ToLower();
+        PopulateList(searchResults
+            .Where(u => !hiddenUserIds.Contains(u.userId))
+            .OrderByDescending(u => (u.userId ?? "").ToLower() == kw
+                                 || (u.username ?? "").ToLower() == kw
+                                 || (u.userTag ?? "").TrimStart('#').ToLower() == kw)
+            .ToList());
     }
 
     // 3. กดส่งคำขอเป็นเพื่อน
@@ -124,6 +152,15 @@ public class AddFriendViewController : MonoBehaviour
             },
             onError: (error) => {
                 Debug.LogError($"[Social] ส่งคำขอไม่สำเร็จ: {error}");
+            },
+            onResult: (result) => {
+                // 🤝 อีกฝ่ายขอเรามาก่อนแล้ว -> DB ตอบรับให้อัตโนมัติ เลยรีเฟรชหน้ารายชื่อเพื่อน
+                if (result == "accepted")
+                {
+                    Debug.Log($"[Social] 🤝 {targetUserId} ส่งคำขอมาหาเราอยู่แล้ว -> เป็นเพื่อนกันทันที");
+                    MyFriendsViewController myFriends = FindAnyObjectByType<MyFriendsViewController>(FindObjectsInactive.Include);
+                    if (myFriends != null) myFriends.FetchMyFriends();
+                }
             }
         ));
     }
@@ -140,21 +177,16 @@ public class AddFriendViewController : MonoBehaviour
         }
     }
 
+    // 🤝 รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น (16 แบบตาม MBTI) ดูส่วน Buddy Avatar ใน SupabaseManager
+    //    (เดิมโหลดจาก Resources/Sprites/Buddies ซึ่งไม่มีโฟลเดอร์นี้ รูปเลยไม่เคยขึ้น)
     private Sprite GetAvatarSprite(string buddyId)
     {
-        if (!string.IsNullOrEmpty(buddyId) && buddySpriteDict.ContainsKey(buddyId.ToUpper()))
-            return buddySpriteDict[buddyId.ToUpper()];
-
-        return null;
+        return SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);
     }
 
     private void LoadBuddySprites()
     {
-        Sprite[] loadedSprites = Resources.LoadAll<Sprite>("Sprites/Buddies");
-        foreach (var sprite in loadedSprites)
-        {
-            buddySpriteDict[sprite.name.ToUpper()] = sprite;
-        }
+        StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
     }
 
     private void ClearContent()

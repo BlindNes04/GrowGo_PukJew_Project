@@ -53,6 +53,7 @@ public class SupabasePlayerPlant
     public string sick_until;
     public int immunity_shields;
     public string planted_at;
+    public string friend_watered_at; // 🤝 เยี่ยมสวนเพื่อน: เวลาที่เพื่อนมารดน้ำให้ล่าสุด (ไม่แตะ last_watered_at ของเจ้าของ)
 }
 
 // 🛠️ Helper Classes สำหรับแปลง JSON Array จาก Supabase

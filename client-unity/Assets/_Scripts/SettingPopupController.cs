@@ -18,6 +18,7 @@ public class SettingPopupController : MonoBehaviour
 
     [Header("ข้อมูลบัญชี (ดึงค่าของผู้เล่นมาใส่ Placeholder)")]
     public TextMeshProUGUI userTagText;             // ข้อความใต้รูปโปรไฟล์ : user_id + user_tag เช่น USER_001#00001
+    public Image profileImage;                      // 🤝 รูปโปรไฟล์ (PFP/Picture) = รูปบัดดี้ตาม MBTI เหมือนหน้าเพื่อน
     public TMP_InputField idInput;                  // ดูได้อย่างเดียว : โชว์ user_id ของผู้เล่น (เช่น USER_001)
     public TMP_InputField usernameInput;
     public TMP_InputField emailInput;               // ดูได้อย่างเดียว แก้ไม่ได้
@@ -101,7 +102,7 @@ public class SettingPopupController : MonoBehaviour
         if (string.IsNullOrEmpty(uid)) { Debug.LogWarning("[Setting] ไม่มี user id เลยดึงข้อมูลบัญชีไม่ได้"); return; }
         if (!gameObject.activeInHierarchy) return;
 
-        StartCoroutine(db.GetRest($"user?select=user_id,user_tag,username,email&user_id=eq.{uid}", json =>
+        StartCoroutine(db.GetRest($"user?select=user_id,user_tag,username,email,buddy_id&user_id=eq.{uid}", json =>
         {
             Debug.Log($"[Setting] ข้อมูลบัญชี: {json}");
             var rows = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json);
@@ -113,7 +114,23 @@ public class SettingPopupController : MonoBehaviour
             SetPlaceholder(usernameInput, rows[0].ContainsKey("username") ? rows[0]["username"] : "");
             SetPlaceholder(emailInput, rows[0].ContainsKey("email") ? rows[0]["email"] : "");
             SetPlaceholder(passwordInput, "********");   // ไม่โชว์รหัสจริง
+
+            // 🤝 รูปโปรไฟล์ : buddy_id -> mbti (ตาราง buddy) -> Resources/buddy/{mbti} ชุดเดียวกับหน้าเพื่อน
+            string buddyId = rows[0].ContainsKey("buddy_id") ? rows[0]["buddy_id"] : "";
+            if (profileImage != null && gameObject.activeInHierarchy) StartCoroutine(LoadProfileImage(buddyId));
         }));
+    }
+
+    // 🤝 โหลดรูปบัดดี้มาเป็นรูปโปรไฟล์ (ถ้าหาไม่เจอ ใช้รูปเดิมที่ตั้งไว้ใน Inspector)
+    private IEnumerator LoadProfileImage(string buddyId)
+    {
+        yield return SupabaseManager.Instance.LoadBuddyMbtiMap();
+        Sprite avatar = SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);
+        if (avatar != null)
+        {
+            profileImage.sprite = avatar;
+            profileImage.preserveAspect = true;
+        }
     }
 
     private void SetPlaceholder(TMP_InputField input, string value)

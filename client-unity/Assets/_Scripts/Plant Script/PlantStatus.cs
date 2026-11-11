@@ -69,6 +69,11 @@ public class PlantStatus : MonoBehaviour
     public string lastWateredAt = "";
     public string plantedAt = "";
 
+    // 🤝 เยี่ยมสวนเพื่อน: เวลาที่เพื่อนมารดน้ำให้ล่าสุด (player_plant.friend_watered_at)
+    //    ใช้คิดหลอดความชุ่มชื้นอย่างเดียว ปุ่มรดน้ำของเรา (CanWater) ยังดูแค่ lastWateredAt
+    //    -> เพื่อนรดให้แล้วหลอดเต็ม แต่เรายังรดเองได้ตามเวลาเดิม และได้แต้มตามปกติ
+    public string friendWateredAt = "";
+
     [Header("⏱️ Cooldown & Buff")]
     public bool testModeInSeconds = false;
     public string currentActiveBuff = "None";
@@ -298,6 +303,7 @@ public class PlantStatus : MonoBehaviour
         sickUntil = playerPlant.sick_until;
         immunityShields = playerPlant.immunity_shields;
         plantedAt = playerPlant.planted_at;
+        friendWateredAt = playerPlant.friend_watered_at; // 🤝 เยี่ยมสวนเพื่อน
 
         RefreshPlantDataFromMaster();
 
@@ -627,16 +633,32 @@ public class PlantStatus : MonoBehaviour
     // 🟢 ใส่ตัวแปรนี้ไว้ข้างนอกฟังก์ชัน เพื่อเก็บเวลาคูลดาวน์สุ่มป่วย
     private float nextHeatCheckTime = 0f;
 
+    // 🤝 เยี่ยมสวนเพื่อน: คืนเวลารดน้ำล่าสุดสำหรับคิดหลอดความชุ่มชื้น
+    //    เทียบเวลาที่เรารดเอง (lastWateredAt) กับเวลาที่เพื่อนรดให้ (friendWateredAt) แล้วเอาอันที่ใหม่กว่า
+    private string GetLatestWateredAt()
+    {
+        if (string.IsNullOrWhiteSpace(friendWateredAt)) return lastWateredAt;
+        if (string.IsNullOrWhiteSpace(lastWateredAt)) return friendWateredAt;
+
+        if (TryParseDateTime(lastWateredAt, out DateTime ownTime) && TryParseDateTime(friendWateredAt, out DateTime friendTime))
+            return friendTime > ownTime ? friendWateredAt : lastWateredAt;
+
+        return lastWateredAt;
+    }
+
     public void UpdateMoistureStatus()
     {
-        if (string.IsNullOrWhiteSpace(lastWateredAt))
+        // 🤝 เยี่ยมสวนเพื่อน: ใช้เวลาที่ใหม่กว่าระหว่างเรารด กับเพื่อนรด (เดิมใช้ lastWateredAt อย่างเดียว)
+        string moistureTime = GetLatestWateredAt();
+
+        if (string.IsNullOrWhiteSpace(moistureTime))
         {
             currentMoisture = 0f;
             return;
         }
 
         DateTime lastTime;
-        if (!TryParseDateTime(lastWateredAt, out lastTime)) return;
+        if (!TryParseDateTime(moistureTime, out lastTime)) return;
 
         TimeSpan timePassed = DateTime.UtcNow - lastTime;
         float hoursPassed = (float)timePassed.TotalHours;

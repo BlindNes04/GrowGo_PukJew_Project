@@ -29,6 +29,7 @@ public class WeatherManager : MonoBehaviour
     public List<SupabaseWeather> weatherMasterList = new List<SupabaseWeather>();
 
     private SupabaseWeather[] weeklyWeatherSchedule = new SupabaseWeather[7];
+    private DateTime lastWeatherDate = DateTime.MinValue;   // วันที่ (เวลาไทย) ที่คำนวณอากาศล่าสุด ใช้เช็คข้ามเที่ยงคืน
 
     private void Awake()
     {
@@ -39,13 +40,37 @@ public class WeatherManager : MonoBehaviour
         }
         else
         {
+            // 🔁 [แก้บัค] กลับเข้า MainForest อีกรอบ: ตัวจริง (DontDestroyOnLoad) ยังถือ Background ของซีนเก่าที่ถูกทำลายไปแล้ว
+            //    เลยส่ง Background ของซีนใหม่ให้ตัวจริง แล้วคำนวณ/เปลี่ยนรูปตามสภาพอากาศวันนี้ใหม่ ก่อนทำลายตัวซ้ำทิ้ง
+            if (backgroundDisplayImage != null)
+                Instance.backgroundDisplayImage = backgroundDisplayImage;
+            Instance.UpdateWeeklyWeather();
+
             Destroy(gameObject);
         }
+    }
+
+    // 🕛 [แก้บัค] เวลาไทย (UTC+7) ให้วันเปลี่ยนตอนเที่ยงคืนไทย เหมือน stamina / daily reward
+    //    (เดิมใช้ UTC ทำให้วันเปลี่ยนตอน 7 โมงเช้าไทย แต่ popup นับถอยหลังถึงเที่ยงคืน ไม่ตรงกัน)
+    public static DateTime GetThaiNow()
+    {
+        return DateTime.UtcNow.AddHours(7);
     }
 
     private void Start()
     {
         FetchWeatherAndInit();
+    }
+
+    // 🕛 [แก้บัค] เปิดเกมค้างข้ามเที่ยงคืน (เวลาไทย) -> คำนวณอากาศวันใหม่ + เปลี่ยนพื้นหลัง + อัปเดต UI ต้นไม้
+    private void Update()
+    {
+        if (lastWeatherDate == DateTime.MinValue) return;   // ยังโหลดอากาศครั้งแรกไม่เสร็จ
+        if (GetThaiNow().Date == lastWeatherDate) return;  // ยังเป็นวันเดิม
+
+        UpdateWeeklyWeather();
+        if (MainPlantStatusView.Instance != null)
+            MainPlantStatusView.Instance.UpdateUI();
     }
 
     public void FetchWeatherAndInit()
@@ -97,7 +122,7 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherMasterList == null || weatherMasterList.Count == 0) return;
 
-        DateTime nowUtc = DateTime.UtcNow;
+        DateTime nowUtc = GetThaiNow();   // [แก้บัค] ใช้เวลาไทย (ชื่อตัวแปรคงเดิมไว้)
 
         // 🟢 คำนวณ Day Index (จันทร์ = 0, ..., เสาร์ = 5, อาทิตย์ = 6)
         currentDayIndex = ((int)nowUtc.DayOfWeek + 6) % 7;
@@ -109,6 +134,7 @@ public class WeatherManager : MonoBehaviour
         GenerateScheduleFromUtcSeed(mondayOfWeek);
 
         currentWeather = weeklyWeatherSchedule[currentDayIndex];
+        lastWeatherDate = nowUtc.Date;   // จำว่าคำนวณของวันนี้แล้ว (ใช้ใน Update)
         ApplyWeatherVisuals();
 
         Debug.Log($"[WeatherManager] 🌍 สภาพอากาศวันนี้ (Day Index {currentDayIndex} - {currentDayName}): {currentWeather.name} ({currentWeather.weather_id})");
@@ -124,6 +150,26 @@ public class WeatherManager : MonoBehaviour
             return weeklyWeatherSchedule[dayIndex];
         }
         return null;
+    }
+
+    /// <summary>
+    /// 🔮 [แก้บัค] ดูอากาศของ "อีก N วันข้างหน้า" ข้ามไปสัปดาห์หน้าได้
+    /// (เดิม popup ใช้ GetWeatherForDayIndex วน % 7 ทำให้ปลายสัปดาห์ไปดูวันต้นสัปดาห์นี้ที่ผ่านไปแล้ว)
+    /// </summary>
+    public SupabaseWeather GetWeatherForDaysAhead(int daysAhead)
+    {
+        int targetIndex = currentDayIndex + daysAhead;
+        if (targetIndex < 7) return GetWeatherForDayIndex(targetIndex);   // ยังอยู่สัปดาห์นี้
+
+        if (weatherMasterList == null || weatherMasterList.Count == 0) return null;
+
+        // ข้ามไปสัปดาห์หน้า: สุ่มตารางสัปดาห์หน้าชั่วคราว (seed เดียวกับที่จะใช้จริงในสัปดาห์หน้า) แล้วคืนตารางสัปดาห์นี้
+        SupabaseWeather[] thisWeek = (SupabaseWeather[])weeklyWeatherSchedule.Clone();
+        DateTime nextMonday = GetThaiNow().Date.AddDays(-currentDayIndex + 7 * (targetIndex / 7));
+        GenerateScheduleFromUtcSeed(nextMonday);
+        SupabaseWeather result = weeklyWeatherSchedule[targetIndex % 7];
+        weeklyWeatherSchedule = thisWeek;
+        return result;
     }
 
     /// <summary>
@@ -259,7 +305,7 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherMasterList == null || weatherMasterList.Count == 0) UseFallbackMasterData();
 
-        DateTime nowUtc = DateTime.UtcNow;
+        DateTime nowUtc = GetThaiNow();   // [แก้บัค] ใช้เวลาไทย ให้ตรงกับ UpdateWeeklyWeather
         int dayIndex = ((int)nowUtc.DayOfWeek + 6) % 7;
         DateTime monday = nowUtc.Date.AddDays(-dayIndex);
 

@@ -67,6 +67,11 @@ public class CherryFormPopup : MonoBehaviour
     {
         SetupOnce();
 
+        // 👁 ตอนแก้ซีนตั้ง CanvasGroup Alpha = 0 ไว้ซ่อนไม่ให้บัง Simulator ได้ (object ต้อง active)
+        //    พอเริ่มเกมคืนค่า Alpha = 1 ให้ตรงนี้ ตอนเปิดหน้าต่างจริงจะได้มองเห็น
+        CanvasGroup editorHideGroup = GetComponent<CanvasGroup>();
+        if (editorHideGroup != null) editorHideGroup.alpha = 1f;
+
         // popup ต้องปิดไว้ตอนเริ่มเกม (เปิดเมื่อกดปุ่ม CherryForm)
         gameObject.SetActive(false);
     }

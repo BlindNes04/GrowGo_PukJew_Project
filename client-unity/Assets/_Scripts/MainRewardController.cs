@@ -40,6 +40,18 @@ public class MainRewardController : MonoBehaviour
     [Header("Buttons")]
     public Button backToStartButton;
 
+    // ==================== 📅 Daily Reward (รางวัลประจำวัน) ====================
+    [Header("📅 Daily Reward (ลาก UI จาก DailyRewardPopup)")]
+    public bool checkDailyRewardOnStart = true;   // เข้า MainForest แล้วเช็คว่าวันนี้รับรางวัลหรือยัง
+    public GameObject dailyPopupRoot;             // DailyRewardPopup (ตัวนอกสุด)
+    public RectTransform dailyPopupPanel;         // Popup (กล่องสีขาว) ใช้เด้งตอนเปิด
+    public RectTransform dailySunburst;           // sunburst (หมุนตลอดตอนเปิด)
+    public Image dailyItemFrame;                  // ItemContainer (กรอบตาม tier)
+    public Image dailyItemImage;                  // Item (รูปไอเทม)
+    public TextMeshProUGUI dailyItemNameText;     // ItemName -> "ชื่อไอเทม x1"
+    public Button dailyClaimButton;               // ปุ่ม "รับ"
+    public MainInventoryManager spriteSource;     // ที่เก็บรูปไอเทม/กรอบ (ว่างไว้ได้ เดี๋ยวหาให้เอง)
+
     private Coroutine sequenceCoroutine;
     private string currentRewardedItemId;
 
@@ -53,6 +65,23 @@ public class MainRewardController : MonoBehaviour
             backToStartButton.onClick.RemoveListener(OnBackToStartClicked);
             backToStartButton.onClick.AddListener(OnBackToStartClicked);
         }
+
+        // 📅 ซ่อน popup รางวัลรายวันไว้ก่อน + ผูกปุ่ม "รับ"
+        if (dailyPopupRoot != null) dailyPopupRoot.SetActive(false);
+        if (dailyClaimButton != null)
+        {
+            dailyClaimButton.onClick.RemoveListener(OnDailyClaimClicked);
+            dailyClaimButton.onClick.AddListener(OnDailyClaimClicked);
+        }
+
+        // 📅 เช็ครางวัลประจำวัน (ต้องเรียกก่อน SetActive(false) เพราะ Start จะไม่ทำงานจนกว่าจะเปิดหน้าต่าง)
+        if (checkDailyRewardOnStart && Instance == this)
+            CheckDailyReward();
+
+        // 👁 ตอนแก้ซีนตั้ง CanvasGroup Alpha = 0 ไว้ซ่อนไม่ให้บัง Simulator ได้ (object ต้อง active)
+        //    พอเริ่มเกมคืนค่า Alpha = 1 ให้ตรงนี้ ตอนเปิดหน้าต่างจริงจะได้มองเห็น
+        CanvasGroup editorHideGroup = GetComponent<CanvasGroup>();
+        if (editorHideGroup != null) editorHideGroup.alpha = 1f;
 
         gameObject.SetActive(false);
     }
@@ -298,5 +327,143 @@ public class MainRewardController : MonoBehaviour
         }
 
         gameObject.SetActive(false);
+    }
+
+    // ==================== 📅 Daily Reward (รางวัลประจำวัน) ====================
+    // ขั้นตอน: เข้า MainForest -> ยิง RPC claim_daily_reward
+    //   - วันนี้ (เวลาไทย) ยังไม่รับ -> DB สุ่ม silver 85% / gold 15% + ใส่ของลงกระเป๋าให้เลย -> เด้ง DailyRewardPopup
+    //   - วันนี้รับไปแล้ว -> ไม่ทำอะไร
+    // รีเซ็ตทุกเที่ยงคืนเวลาไทย เหมือน stamina
+    // หมายเหตุ: GameObject ของสคริปต์นี้ถูกปิดใน Awake (Coroutine/Update ใช้ไม่ได้)
+    //          จึงให้ SupabaseManager (ไม่ถูกปิด) เป็นคนรัน Coroutine แทน
+    public void CheckDailyReward()
+    {
+        if (SupabaseManager.Instance == null)
+        {
+            Debug.LogWarning("[MainRewardController] ⚠️ ไม่พบ SupabaseManager! ข้ามการเช็ครางวัลประจำวัน");
+            return;
+        }
+
+        Debug.Log($"[DailyReward] 🔍 เริ่มเช็ครางวัลประจำวันของ {SupabaseManager.Instance.GetActiveUserId()}");
+
+        SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.ClaimDailyReward(
+            onResult: (result) =>
+            {
+                if (result == null) return;
+                if (!result.claimed)   // รับไปแล้ววันนี้ / ไม่เจอ user / ไม่มีของใน tier
+                {
+                    Debug.Log($"[DailyReward] 🟡 ไม่ได้รับรางวัล: {result.message}");
+                    return;
+                }
+                Debug.Log($"[DailyReward] 🟢 ได้ {result.reward_item_name} ({result.reward_item_id}) tier {result.reward_tier} x{result.reward_quantity} -> ใส่ inventory ใน DB แล้ว");
+                if (this == null) return;                        // เปลี่ยนซีนไปแล้ว
+                OpenDailyRewardPopup(result.reward_item_id, result.reward_item_name, result.reward_tier, result.reward_quantity);
+            },
+            onError: (error) =>
+            {
+                Debug.LogError($"[MainRewardController] 🔴 เช็ครางวัลประจำวันล้มเหลว: {error}");
+            }
+        ));
+    }
+
+    // ใส่ข้อมูลไอเทมลง DailyRewardPopup แล้วเล่นอนิเมชัน (ใช้ PopAnimation/FadeAnimation ตัวเดียวกับหน้าต่างเดิม)
+    private void OpenDailyRewardPopup(string itemId, string itemName, string tier, int quantity)
+    {
+        if (dailyPopupRoot == null)
+        {
+            Debug.LogWarning("[MainRewardController] ⚠️ ยังไม่ได้ลาก DailyRewardPopup ใส่ช่อง dailyPopupRoot");
+            return;
+        }
+
+        if (spriteSource == null)
+            spriteSource = FindAnyObjectByType<MainInventoryManager>(FindObjectsInactive.Include);
+
+        // 1. กรอบตาม tier (silver / gold)
+        //    (หาจาก Frame Sprites ของ MainInventoryManager ถ้าไม่เจอใช้ Default Frame)
+        if (dailyItemFrame != null && spriteSource != null && !string.IsNullOrEmpty(tier))
+        {
+            var frame = spriteSource.frameSprites?.Find(x => x.rarityTier.ToLower() == tier.ToLower());
+            dailyItemFrame.sprite = frame != null ? frame.frameSprite : spriteSource.defaultFrame;
+        }
+
+        // 2. รูปไอเทมที่สุ่มได้
+        if (dailyItemImage != null)
+        {
+            Sprite icon = FindItemSprite(itemId);
+            dailyItemImage.sprite = icon;
+            dailyItemImage.preserveAspect = true;
+            dailyItemImage.enabled = icon != null;
+        }
+
+        // 3. ชื่อไอเทม + จำนวน เช่น "ไข่ x1"
+        if (dailyItemNameText != null)
+            dailyItemNameText.text = $"{itemName} x{(quantity > 0 ? quantity : 1)}";   // กันกรณี DB ยังไม่ส่งจำนวนมา
+
+        dailyPopupRoot.SetActive(true);
+        Debug.Log($"[DailyReward] 🎁 เปิด popup: {itemName} x{quantity} (กรอบ {tier})");
+        SupabaseManager.Instance.StartCoroutine(PlayDailyPopupAnimation());
+        SupabaseManager.Instance.StartCoroutine(RotateDailySunburst());
+    }
+
+    // ลำดับอนิเมชัน: กล่องเด้ง -> แสง+ไอเทมเด้ง -> ชื่อค่อยๆ โผล่ -> ปุ่มเด้ง
+    private IEnumerator PlayDailyPopupAnimation()
+    {
+        RectTransform frameRect = dailyItemFrame != null ? dailyItemFrame.rectTransform : null;
+        RectTransform nameRect = dailyItemNameText != null ? dailyItemNameText.rectTransform : null;
+        RectTransform buttonRect = dailyClaimButton != null ? dailyClaimButton.transform as RectTransform : null;
+
+        SetHidden(dailySunburst);
+        SetHidden(frameRect);
+        SetHidden(nameRect);
+        SetHidden(buttonRect);
+
+        if (dailyPopupPanel != null)
+            yield return PopAnimation(dailyPopupPanel, popDuration, 1.05f);
+
+        if (dailySunburst != null) SupabaseManager.Instance.StartCoroutine(PopAnimation(dailySunburst, popDuration, 1.1f));
+        if (frameRect != null) yield return PopAnimation(frameRect, popDuration, itemPopOvershoot);
+
+        yield return new WaitForSeconds(textDelay);
+        if (nameRect != null) yield return FadeAnimation(nameRect, fadeDuration);
+
+        yield return new WaitForSeconds(0.12f);
+        if (buttonRect != null) yield return PopAnimation(buttonRect, popDuration, buttonPopOvershoot);
+    }
+
+    // หมุน sunburst ตลอดเวลาที่ popup เปิดอยู่ (แทน Update เพราะสคริปต์นี้ถูกปิด)
+    private IEnumerator RotateDailySunburst()
+    {
+        while (dailySunburst != null && dailyPopupRoot != null && dailyPopupRoot.activeInHierarchy)
+        {
+            dailySunburst.Rotate(0f, 0f, -rotateSpeed * Time.deltaTime);
+            yield return null;
+        }
+    }
+
+    // ปุ่ม "รับ": ของอยู่ในกระเป๋าแล้ว (RPC ใส่ให้) แค่ปิด popup
+    private void OnDailyClaimClicked()
+    {
+        if (MAudioManager.instance != null)
+            MAudioManager.instance.PlayClickSFX();
+
+        if (dailyPopupRoot != null)
+            dailyPopupRoot.SetActive(false);
+        Debug.Log("[DailyReward] ✅ กดรับแล้ว ปิด popup");
+    }
+
+    // หารูปไอเทม: ดูใน gardenDropPool ก่อน ถ้าไม่มีไปดู Item Sprites ของ MainInventoryManager
+    private Sprite FindItemSprite(string itemId)
+    {
+        GardenDropItem poolItem = gardenDropPool.Find(x => x.itemId == itemId);
+        if (poolItem != null && poolItem.itemIcon != null) return poolItem.itemIcon;
+
+        if (spriteSource != null && spriteSource.itemSprites != null)
+        {
+            var mapping = spriteSource.itemSprites.Find(x => x.itemId == itemId);
+            if (mapping != null) return mapping.itemSprite;
+        }
+
+        Debug.LogWarning($"[MainRewardController] ⚠️ ไม่พบรูปของ '{itemId}' (เพิ่มใน Item Sprites ของ MainInventoryManager)");
+        return null;
     }
 }

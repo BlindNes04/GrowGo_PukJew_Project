@@ -126,7 +126,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: enfp_0
+      name: enfj
       rect:
         serializedVersion: 2
         x: 892
@@ -134,7 +134,7 @@ TextureImporter:
         width: 2296
         height: 2816
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -161,7 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      enfp_0: 2892020957620288474
+      enfj: 2892020957620288474
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -485,7 +485,9 @@ public class SupabaseManager : MonoBehaviour
 
     public IEnumerator GetFriendships(Action<string> onSuccess, Action<string> onError)
     {
-        string endpoint = $"{supabaseUrl}/rest/v1/friendship?select=*";
+        // 🤝 แก้ระบบเพื่อน: ดึงเฉพาะแถวที่เกี่ยวกับเรา (เดิมดึงทั้งตาราง)
+        string me = GetActiveUserId();
+        string endpoint = $"{supabaseUrl}/rest/v1/friendship?select=*&or=(requester_id.eq.{me},addressee_id.eq.{me})";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
@@ -506,9 +508,21 @@ public class SupabaseManager : MonoBehaviour
         }
     }
 
-    public IEnumerator GetAllUsers(Action<string> onSuccess, Action<string> onError)
+    public IEnumerator GetAllUsers(Action<string> onSuccess, Action<string> onError, List<string> onlyUserIds = null)
     {
         string endpoint = $"{supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,level,buddy_id";
+
+        // 🤝 Supabase ส่งกลับได้มากสุด 1000 แถวต่อครั้ง แต่ตาราง user มี 3000+ แถว (รวม mock)
+        //    ถ้าดึงทั้งตาราง USER_002 / USER_003 จะหลุดไปอยู่หลัง 1000 แถวแรก เลยหาไม่เจอ
+        //    ส่ง onlyUserIds มา = ดึงเฉพาะคนที่ต้องใช้ (เช่น รายชื่อเพื่อน, คนที่ส่งคำขอมา)
+        if (onlyUserIds != null)
+        {
+            if (onlyUserIds.Count == 0) { onSuccess?.Invoke("[]"); yield break; }
+            List<string> quoted = new List<string>();
+            foreach (string id in onlyUserIds) quoted.Add($"\"{id}\"");
+            string idList = string.Join(",", quoted);
+            endpoint += "&user_id=in.(" + UnityWebRequest.EscapeURL(idList) + ")";
+        }
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
@@ -534,12 +548,18 @@ public class SupabaseManager : MonoBehaviour
         string cleanQuery = query.Trim();
         if (string.IsNullOrEmpty(cleanQuery)) yield break;
 
-        string tagQuery = cleanQuery.StartsWith("#") ? cleanQuery : $"#{cleanQuery}";
+        // 🤝 แก้ระบบเพื่อน: ค้นหาบางส่วนได้ ไม่ต้องพิมพ์ตรงเป๊ะ (ilike = ไม่สนตัวพิมพ์เล็ก/ใหญ่)
+        //    เช่นพิมพ์ "man" เจอ "Mango", พิมพ์ "0001" หรือ "#0001" เจอแท็ก #00001
+        //    ตัดตัวอักษรที่ใช้แยกเงื่อนไขใน URL ออก ( , ( ) " ) กันคำค้นทำ URL พัง
+        string keyword = cleanQuery.TrimStart('#').Replace(",", "").Replace("(", "").Replace(")", "").Replace("\"", "");
+        if (string.IsNullOrEmpty(keyword)) yield break;
+        // 🤝 ค้นได้ทั้ง username / tag / user_id (เช่น พิมพ์ "user_003" หรือ "003")
+        //    ใน ilike ตัว _ กับ % เป็นอักษรพิเศษ (_ = อะไรก็ได้ 1 ตัว) ต้องใส่ \ นำหน้า
+        //    ไม่งั้นพิมพ์ "USER_002" จะไปเจอ user_0020-0029 ของ mock จนเต็ม 20 คนก่อน
+        string likeKeyword = keyword.Replace("\\", "").Replace("_", "\\_").Replace("%", "\\%");
+        string pattern = UnityWebRequest.EscapeURL($"*{likeKeyword}*");
 
-        string encodedName = UnityWebRequest.EscapeURL($"\"{cleanQuery}\"");
-        string encodedTag = UnityWebRequest.EscapeURL($"\"{tagQuery}\"");
-
-        string endpoint = $"{supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,level,buddy_id&or=(username.eq.{encodedName},user_tag.eq.{encodedTag},user_tag.eq.{encodedName})";
+        string endpoint = $"{supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,level,buddy_id&or=(username.ilike.{pattern},user_tag.ilike.{pattern},user_id.ilike.{pattern})&limit=50";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
@@ -560,17 +580,19 @@ public class SupabaseManager : MonoBehaviour
         }
     }
 
-    public IEnumerator SendFriendRequest(string targetUserId, Action onSuccess = null, Action<string> onError = null)
-    {
-        string endpoint = $"{supabaseUrl}/rest/v1/friendship";
-        string fsId = $"FS_{DateTime.UtcNow.Ticks.ToString().Substring(10)}";
+    // 🤝 แก้ระบบเพื่อน: ส่งคำขอผ่าน RPC send_friend_request (ไฟล์ friend_request_fix.sql)
+    //    DB เช็คให้หมด กันคำขอซ้ำ/ซ้อนสองทาง และถ้าอีกฝ่ายขอเรามาก่อนแล้ว จะเป็นเพื่อนกันทันที
+    //    onResult ได้ค่า: sent / accepted / already_sent / already_friends / self
+    private class FriendRequestResult { public string result; }
 
-        string jsonPayload = "{" +
-            $"\"friendship_id\":\"{fsId}\"," +
-            $"\"requester_id\":\"{GetActiveUserId()}\"," +
-            $"\"addressee_id\":\"{targetUserId}\"," +
-            $"\"status\":\"pending\"" +
-        "}";
+    public IEnumerator SendFriendRequest(string targetUserId, Action onSuccess = null, Action<string> onError = null, Action<string> onResult = null)
+    {
+        string endpoint = $"{supabaseUrl}/rest/v1/rpc/send_friend_request";
+        string jsonPayload = JsonConvert.SerializeObject(new Dictionary<string, object>
+        {
+            { "p_requester_id", GetActiveUserId() },
+            { "p_target_id", targetUserId }
+        });
 
         using (UnityWebRequest request = new UnityWebRequest(endpoint, "POST"))
         {
@@ -578,14 +600,16 @@ public class SupabaseManager : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             SetSupabaseHeaders(request);
-            request.SetRequestHeader("Prefer", "return=minimal");
 
             yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log($"[Supabase Success] 🟢 Sent friend request to target: {targetUserId}");
+                var rows = JsonConvert.DeserializeObject<List<FriendRequestResult>>(request.downloadHandler.text);
+                string result = (rows != null && rows.Count > 0) ? rows[0].result : "";
+                Debug.Log($"[Supabase Success] 🟢 Friend request to {targetUserId}: {result}");
                 onSuccess?.Invoke();
+                onResult?.Invoke(result);
             }
             else
             {
@@ -1589,5 +1613,168 @@ public class SupabaseManager : MonoBehaviour
                 onError?.Invoke(request.error);
             }
         }
+    }
+
+    // ==================== Daily Reward (รางวัลประจำวัน) ====================
+    // เรียก RPC claim_daily_reward บน Supabase
+    // - DB เช็คเองว่า "วันที่" (เวลาไทย) ของ last_daily_reward_at ตรงกับวันนี้ไหม ถ้าตรง = รับไปแล้ว
+    // - ถ้ายังไม่รับ DB จะสุ่ม silver 85% / gold 15% แล้วใส่ของลง inventory ให้เลย
+    // ทำฝั่ง DB เพื่อไม่ให้ผู้เล่นโกงด้วยการเปลี่ยนเวลาในเครื่อง
+    [Serializable]
+    public class DailyRewardResult
+    {
+        public bool claimed;            // true = วันนี้ได้ของใหม่, false = รับไปแล้ว/ผิดพลาด
+        public string reward_item_id;   // เช่น ITEM_ING_EGG
+        public string reward_item_name; // ชื่อจากตาราง item
+        public string reward_tier;      // silver / gold
+        public int reward_quantity;     // จำนวนที่ได้ (ตอนนี้ 1)
+        public string message;          // Success / Already claimed today / ...
+    }
+
+    public IEnumerator ClaimDailyReward(Action<DailyRewardResult> onResult, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            Debug.LogWarning("[DailyReward] ⚠️ ไม่มี User ID (ยังไม่ได้ล็อกอิน) ข้ามการเช็ค");
+            onError?.Invoke("No active user");
+            yield break;
+        }
+
+        string endpoint = $"{supabaseUrl}/rest/v1/rpc/claim_daily_reward";
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, object> { { "p_user_id", userId } });
+
+        using (UnityWebRequest request = new UnityWebRequest(endpoint, "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[DailyReward] 🔴 RPC ล้มเหลว: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+                yield break;
+            }
+
+            // RPC แบบ returns table จะตอบกลับเป็น array เสมอ เอาแถวแรก
+            var list = JsonConvert.DeserializeObject<List<DailyRewardResult>>(request.downloadHandler.text);
+            if (list == null || list.Count == 0)
+            {
+                Debug.LogError($"[DailyReward] 🔴 RPC ตอบกลับว่าง: {request.downloadHandler.text}");
+                onError?.Invoke("Empty response");
+                yield break;
+            }
+
+            Debug.Log($"[DailyReward] 📩 {list[0].message} ({list[0].reward_item_id})");
+            onResult?.Invoke(list[0]);
+        }
+    }
+
+    // ==================== Friend Visit (เยี่ยมสวนเพื่อน) ====================
+    // เรียก RPC water_friend_plant บน Supabase (ไฟล์ SQL: water_friend_plant.sql)
+    // DB เช็คเองทั้งหมด : เป็นเพื่อนกันไหม / ต้นป่วยไหม / วันนี้ช่วยรดต้นนี้ไปแล้วไหม (รีเที่ยงคืนเวลาไทย)
+    // ถ้าผ่าน DB จะบันทึก player_plant.friend_watered_at (= wateredAtIso) + behavior_log (water_friend_tree) ให้เลย
+    // wateredAtIso = เวลาที่ย้อนไปแล้ว ให้หลอดเจ้าของขึ้นแค่ 60% (คิดใน FriendVisitController)
+    // แล้วตอบกลับว่าเป็น "ต้นแรกของเพื่อนคนนี้ในวันนี้" ไหม (FriendVisitController ใช้คิดรางวัล)
+    [Serializable]
+    public class WaterFriendResult
+    {
+        public bool success;          // true = รดสำเร็จ
+        public bool is_first_today;   // true = ต้นแรกของเพื่อนคนนี้ในวันนี้ (ได้แต้มดอกไม้)
+        public string message;        // Success / Already helped today / Plant is sick / Not friend / ...
+    }
+
+    public IEnumerator WaterFriendPlant(string playerPlantId, string wateredAtIso, Action<WaterFriendResult> onResult, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            onError?.Invoke("No active user");
+            yield break;
+        }
+
+        string endpoint = $"{supabaseUrl}/rest/v1/rpc/water_friend_plant";
+        var args = new Dictionary<string, object>
+        {
+            { "p_helper_id", userId },
+            { "p_player_plant_id", playerPlantId }
+        };
+        // ส่งเวลาย้อนหลังไปด้วยเฉพาะตอนตั้งให้เพื่อนรดไม่เต็มหลอด (ต้องรัน water_friend_plant_v2.sql ก่อน)
+        // ถ้าไม่ส่ง DB จะใช้เวลาปัจจุบัน = หลอดเต็ม 100
+        if (!string.IsNullOrEmpty(wateredAtIso)) args["p_watered_at"] = wateredAtIso;
+        string jsonBody = JsonConvert.SerializeObject(args);
+
+        using (UnityWebRequest request = new UnityWebRequest(endpoint, "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[FriendVisit] 🔴 RPC water_friend_plant ล้มเหลว: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+                yield break;
+            }
+
+            // RPC แบบ returns table จะตอบกลับเป็น array เสมอ เอาแถวแรก
+            var list = JsonConvert.DeserializeObject<List<WaterFriendResult>>(request.downloadHandler.text);
+            if (list == null || list.Count == 0)
+            {
+                onError?.Invoke("Empty response");
+                yield break;
+            }
+
+            Debug.Log($"[FriendVisit] 💧 {list[0].message} (first today: {list[0].is_first_today})");
+            onResult?.Invoke(list[0]);
+        }
+    }
+
+    // ==================== Buddy Avatar (รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น) ====================
+    // รูปโปรไฟล์ในหน้าเพื่อนทุกหน้าใช้รูปบัดดี้ตาม MBTI (16 แบบ) จาก Resources/buddy/{mbti}
+    // ตาราง user เก็บแค่ buddy_id (เช่น BUDDY_LION) เลยต้องโหลดตาราง buddy มาจับคู่ buddy_id -> mbti_type ก่อน (โหลดครั้งเดียว)
+    private Dictionary<string, string> buddyMbtiMap = null;
+    private class BuddyMbtiRow { public string buddy_id; public string mbti_type; }
+
+    public IEnumerator LoadBuddyMbtiMap()
+    {
+        if (buddyMbtiMap != null) yield break;   // โหลดแล้ว
+
+        yield return GetRest("buddy?select=buddy_id,mbti_type", json =>
+        {
+            var rows = JsonConvert.DeserializeObject<List<BuddyMbtiRow>>(json) ?? new List<BuddyMbtiRow>();
+            buddyMbtiMap = new Dictionary<string, string>();
+            foreach (var r in rows)
+            {
+                if (!string.IsNullOrEmpty(r.buddy_id) && !string.IsNullOrEmpty(r.mbti_type))
+                    buddyMbtiMap[r.buddy_id.Trim().ToUpper()] = r.mbti_type.Trim().ToLower();
+            }
+        });
+    }
+
+    /// <summary> รูปโปรไฟล์จาก buddy_id (ต้องเรียก LoadBuddyMbtiMap ก่อน) ถ้าหาไม่เจอคืน null = ใช้รูปเดิมใน prefab </summary>
+    public Sprite GetBuddyAvatarSprite(string buddyId)
+    {
+        if (string.IsNullOrEmpty(buddyId) || buddyMbtiMap == null) return null;
+        if (!buddyMbtiMap.TryGetValue(buddyId.Trim().ToUpper(), out string mbti)) return null;
+        return LoadBuddySprite("buddy/" + mbti);
+    }
+
+    /// <summary> โหลดรูปบัดดี้จาก Resources ให้ได้ทั้งรูปแบบ Single และ Multiple
+    /// (รูปที่ตั้ง Sprite Mode = Multiple เช่น main_buddy/infj, buddy/enfj ใช้ Resources.Load ตรงๆ จะได้ null) </summary>
+    public Sprite LoadBuddySprite(string path)
+    {
+        Sprite sprite = Resources.Load<Sprite>(path);
+        if (sprite != null) return sprite;
+        // รูปแบบ Multiple : ในไฟล์มีหลายชิ้น (เช่น infj, infj short_1, ...) เลือกชิ้นที่ชื่อตรงกับชื่อไฟล์
+        Sprite[] parts = Resources.LoadAll<Sprite>(path);
+        string fileName = path.Substring(path.LastIndexOf('/') + 1);
+        foreach (Sprite part in parts) if (part.name == fileName) return part;
+        return parts.Length > 0 ? parts[0] : null;
     }
 }
