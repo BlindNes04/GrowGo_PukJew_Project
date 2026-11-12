@@ -1777,4 +1777,163 @@ public class SupabaseManager : MonoBehaviour
         foreach (Sprite part in parts) if (part.name == fileName) return part;
         return parts.Length > 0 ? parts[0] : null;
     }
+    // ==================== Plant Store (ร้านค้า) ====================
+    // ตาราง shop_item = ของที่ขาย (ราคา + ใช้แต้มอะไร), shop_item_drop = โอกาสสุ่มของกล่อง/ซองสุ่ม
+    // การซื้อเรียก RPC buy_shop_item (ไฟล์ SQL: store_setup.sql)
+    //   DB ทำให้ทั้งหมดในครั้งเดียว: เช็คแต้มพอไหม -> หักแต้ม -> สุ่มตาม weight (ถ้าเป็นกล่องสุ่ม) -> ใส่ inventory
+    //   ทำฝั่ง DB เพื่อไม่ให้ผู้เล่นโกงผลสุ่ม/แต้มจากในเครื่อง
+    [Serializable]
+    public class ShopItemData
+    {
+        public string shop_item_id;     // เช่น POOL_NORMAL, SHOP_SEED_CHERRY
+        public string item_name;        // ชื่อที่โชว์ในร้าน
+        public string item_type;        // GACHA_POOL (สุ่ม) / DIRECT_ITEM (ได้ชัวร์)
+        public string target_item_id;   // ของที่ได้ (เฉพาะ DIRECT_ITEM)
+        public int price_amount;        // ราคา
+        public string price_type;       // flower_points / green_points
+        public string description;
+    }
+
+    [Serializable]
+    public class ShopDropData
+    {
+        public string shop_item_id;
+        public string item_id;
+        public int weight;
+        public string chance_display;   // เช่น "50%" ไว้โชว์โอกาสสุ่ม
+        public DropItemName item;       // ชื่อของจากตาราง item (ดึงมาพร้อมกันผ่าน foreign key)
+    }
+
+    [Serializable]
+    public class DropItemName
+    {
+        public string item_name;
+    }
+
+    [Serializable]
+    public class BuyShopResult
+    {
+        public bool success;            // true = ซื้อสำเร็จ
+        public string got_item_id;      // ของที่ได้ (สุ่มได้อะไร)
+        public string got_item_name;
+        public int new_flower_points;   // แต้มหลังซื้อ (เอาไปอัปเดตหน้าจอ)
+        public int new_green_points;
+        public string message;          // Success / Not enough flower points / ...
+    }
+
+    /// <summary> โหลดรายการของในร้าน (เรียงตามราคา) </summary>
+    public IEnumerator GetShopItems(Action<List<ShopItemData>> onResult, Action<string> onError = null)
+    {
+        yield return GetRest("shop_item?select=*&order=price_amount.asc", json =>
+        {
+            onResult?.Invoke(JsonConvert.DeserializeObject<List<ShopItemData>>(json) ?? new List<ShopItemData>());
+        }, onError);
+    }
+
+    /// <summary> โหลดโอกาสสุ่มของกล่อง/ซองสุ่ม (ไว้โชว์ว่ามีอะไรบ้าง) </summary>
+    public IEnumerator GetShopDrops(Action<List<ShopDropData>> onResult, Action<string> onError = null)
+    {
+        yield return GetRest("shop_item_drop?select=*,item:item_id(item_name)&order=weight.desc", json =>
+        {
+            onResult?.Invoke(JsonConvert.DeserializeObject<List<ShopDropData>>(json) ?? new List<ShopDropData>());
+        }, onError);
+    }
+
+    public IEnumerator BuyShopItem(string shopItemId, Action<BuyShopResult> onResult, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId)) { onError?.Invoke("No active user"); yield break; }
+
+        string endpoint = $"{supabaseUrl}/rest/v1/rpc/buy_shop_item";
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, object>
+        {
+            { "p_user_id", userId },
+            { "p_shop_item_id", shopItemId }
+        });
+
+        using (UnityWebRequest request = new UnityWebRequest(endpoint, "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[Store] 🔴 RPC buy_shop_item ล้มเหลว: {request.error} | {request.downloadHandler.text}");
+                onError?.Invoke(request.error);
+                yield break;
+            }
+
+            // RPC แบบ returns table จะตอบกลับเป็น array เสมอ เอาแถวแรก
+            var list = JsonConvert.DeserializeObject<List<BuyShopResult>>(request.downloadHandler.text);
+            if (list == null || list.Count == 0) { onError?.Invoke("Empty response"); yield break; }
+
+            BuyShopResult result = list[0];
+            // ⭐ DB หักแต้มไปแล้ว ต้องอัปเดตค่าในเครื่องให้ตรง
+            // (ไม่งั้นตอนบันทึก EXP ครั้งถัดไป SavePlayerStatsRoutine จะเขียนแต้มเก่าทับกลับไป)
+            playerFlowerPoints = result.new_flower_points;
+            playerGreenPoints = result.new_green_points;
+            OnPlayerStatsChanged?.Invoke();
+
+            Debug.Log($"[Store] 🛒 {result.message} ({shopItemId} -> {result.got_item_id})");
+            onResult?.Invoke(result);
+        }
+    }
+
+    // ==================== Certificate OCR (แลก Green Point ด้วยวุฒิบัตร) ====================
+    // ส่งรูปวุฒิบัตรไปที่ Edge Function "verify-certificate" บน Supabase
+    // ฝั่งเซิร์ฟเวอร์ใช้ Typhoon OCR อ่านข้อความ แล้วเช็คตามโค้ดเพื่อน (ocr_pukjiw.py) + กันใช้ใบเดิมซ้ำ
+    // ผ่าน = +100 green_points, บันทึก certificate_submission + behavior_log (submit_tree_cert) ให้เลย
+    // คีย์ Typhoon เก็บใน Supabase Secrets ไม่ได้อยู่ในเกม
+    [Serializable]
+    public class CertificateResult
+    {
+        public bool success;            // true = ผ่าน ได้แต้ม
+        public string reason;           // เหตุผล (โชว์ให้ผู้เล่นได้เลย เป็นภาษาไทย)
+        public int points_awarded;      // แต้มที่ได้ (100)
+        public int new_green_points;    // แต้มเขียวหลังได้รับ
+        public string certificate_no;   // เลขลำดับบนวุฒิบัตร
+    }
+
+    public IEnumerator SubmitCertificate(byte[] imageBytes, string fileName, Action<CertificateResult> onResult, Action<string> onError = null)
+    {
+        string userId = GetActiveUserId();
+        if (string.IsNullOrEmpty(userId)) { onError?.Invoke("No active user"); yield break; }
+
+        // ส่งแบบ form (user_id + ไฟล์รูป)
+        WWWForm form = new WWWForm();
+        form.AddField("user_id", userId);
+        form.AddBinaryData("file", imageBytes, fileName, "image/jpeg");
+
+        using (UnityWebRequest request = UnityWebRequest.Post($"{supabaseUrl}/functions/v1/verify-certificate", form))
+        {
+            // ห้ามใช้ SetSupabaseHeaders ตรงนี้ เพราะมันตั้ง Content-Type เป็น json แต่ตัวนี้ต้องเป็น form
+            request.SetRequestHeader("apikey", supabaseAnonKey);
+            request.timeout = 90;   // OCR ใช้เวลาหลายวินาที
+
+            yield return request.SendWebRequest();
+
+            string text = request.downloadHandler != null ? request.downloadHandler.text : "";
+            CertificateResult result = null;
+            try { result = JsonConvert.DeserializeObject<CertificateResult>(text); } catch { }
+
+            // ฝั่งเซิร์ฟเวอร์ตอบเหตุผลมาเสมอ ถึงจะเป็น error ก็เอาเหตุผลนั้นไปโชว์
+            if (result == null || string.IsNullOrEmpty(result.reason))
+            {
+                Debug.LogError($"[Certificate] 🔴 ส่งวุฒิบัตรล้มเหลว: {request.error} | {text}");
+                onError?.Invoke(string.IsNullOrEmpty(request.error) ? "Unknown error" : request.error);
+                yield break;
+            }
+
+            if (result.success)
+            {
+                playerGreenPoints = result.new_green_points;
+                OnPlayerStatsChanged?.Invoke();
+            }
+            Debug.Log($"[Certificate] 📜 success={result.success} reason={result.reason} no={result.certificate_no}");
+            onResult?.Invoke(result);
+        }
+    }
 }
