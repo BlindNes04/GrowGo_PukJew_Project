@@ -269,13 +269,10 @@ public class SettingPopupController : MonoBehaviour
     // ปุ่ม "ออกจากระบบ" -> ลืม id ผู้เล่นที่จำไว้ในเครื่อง แล้วกลับไปหน้าเริ่มเกม (ข้อมูลใน Supabase ยังอยู่ครบ ล็อกอินใหม่ได้)
     public void SignOut()
     {
-        PlayerPrefs.DeleteKey("SavedUserId");
-        PlayerPrefs.Save();
-
+        // ล้าง id ผู้เล่น + รหัส session + cache เลเวล/แต้ม ให้โหลดของคนใหม่ตอนล็อกอิน
         if (SupabaseManager.Instance != null)
         {
-            SupabaseManager.Instance.currentUserId = "";
-            SupabaseManager.Instance.ClearPlayerCache();   // 📦 ล้าง cache + เลเวล/แต้ม ให้โหลดของคนใหม่ตอนล็อกอิน
+            SupabaseManager.Instance.ClearLocalSession();
         }
 
         SceneManager.LoadScene(sceneAfterDelete);   // ใช้ฉากเดียวกับตอนลบบัญชี (MainMenu)

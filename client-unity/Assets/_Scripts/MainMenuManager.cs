@@ -33,6 +33,10 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI registerStatusText;
     [SerializeField] private Button registerSubmitButton;
 
+    [Header("🔐 ป๊อปอัปถูกเข้าสู่ระบบจากเครื่องอื่น")]
+    [Tooltip("ป๊อปอัปแจ้งว่าบัญชีถูกล็อกอินจากเครื่องอื่น (ตั้งปิดไว้ในฉาก) ปุ่มปิดให้ผูกกับ CloseKickedPopup")]
+    [SerializeField] private GameObject kickedPopup;
+
     [Header("Sequence Settings")]
     [Tooltip("ระยะเวลารอ Logo เล่นจบ (วินาที) ก่อนเปิดการ์ด")]
     [SerializeField] private float logoWaitTime = 0.8f;
@@ -60,6 +64,17 @@ public class MainMenuManager : MonoBehaviour
         if (registerSubmitButton != null) registerSubmitButton.onClick.AddListener(OnSubmitRegister);
 
         ClearStatusTexts();
+
+        // 🔐 เพิ่งถูกเด้งออกเพราะมีเครื่องอื่นล็อกอินบัญชีนี้ -> โชว์ป๊อปอัปแจ้ง (โชว์ครั้งเดียว)
+        bool wasKicked = SupabaseManager.kickedByOtherDevice;
+        SupabaseManager.kickedByOtherDevice = false;
+        if (kickedPopup != null) kickedPopup.SetActive(wasKicked);
+    }
+
+    // ปุ่มปิดป๊อปอัป "ถูกเข้าสู่ระบบจากเครื่องอื่น"
+    public void CloseKickedPopup()
+    {
+        if (kickedPopup != null) kickedPopup.SetActive(false);
     }
 
     // --- 1. ปุ่ม "เข้าสู่ระบบ" จากหน้าแรก ---
@@ -208,7 +223,8 @@ public class MainMenuManager : MonoBehaviour
                         PlayerPrefs.Save();
                         SupabaseManager.Instance.PreloadAll();   // 📦 ล็อกอินสำเร็จ -> โหลดข้อมูลบัญชีนี้เก็บ cache (บัญชีเก่าถูกล้างอัตโนมัติ)
 
-                        StartCoroutine(UpdateLastLoginTime(userId));
+                        // 🔐 สร้าง session ใหม่ (เครื่องอื่นที่ล็อกอินบัญชีนี้อยู่จะถูกเด้งออก) + บันทึก last_login_at
+                        SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.StartNewSession(userId));
 
                         ShowStatus(loginStatusText, $"ยินดีต้อนรับคุณ {username}!", Color.green);
                         Debug.Log($"[Auth] 🟢 ล็อกอินสำเร็จ! User ID: {userId}");
@@ -391,6 +407,7 @@ public class MainMenuManager : MonoBehaviour
                 PlayerPrefs.SetString("SavedUserId", fixedUserId);
                 PlayerPrefs.Save();
                 SupabaseManager.Instance.PreloadAll();   // 📦 สมัครสำเร็จ -> โหลดข้อมูลบัญชีใหม่เก็บ cache
+                SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.StartNewSession(fixedUserId));   // 🔐 session แรกของบัญชีนี้
 
                 ShowStatus(registerStatusText, $"สมัครสำเร็จ! แท็กของคุณคือ {newUserTag}", Color.green);
                 Debug.Log($"[Auth] 🟢 สมัครสมาชิกสำเร็จ! ID: {fixedUserId} | Tag: {newUserTag}");
@@ -412,25 +429,6 @@ public class MainMenuManager : MonoBehaviour
                     ShowStatus(registerStatusText, "สร้างบัญชีล้มเหลว กรุณาลองใหม่", Color.red);
                 }
             }
-        }
-    }
-
-    private IEnumerator UpdateLastLoginTime(string userId)
-    {
-        string url = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/user?user_id=eq.{userId}";
-        string jsonBody = $"{{\"last_login_at\":\"{DateTime.UtcNow.ToString("o")}\"}}";
-
-        using (UnityWebRequest req = new UnityWebRequest(url, "PATCH"))
-        {
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonBody);
-            req.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            req.downloadHandler = new DownloadHandlerBuffer();
-
-            req.SetRequestHeader("apikey", SupabaseManager.Instance.supabaseAnonKey);
-            req.SetRequestHeader("Authorization", $"Bearer {SupabaseManager.Instance.supabaseAnonKey}");
-            req.SetRequestHeader("Content-Type", "application/json");
-
-            yield return req.SendWebRequest();
         }
     }
 

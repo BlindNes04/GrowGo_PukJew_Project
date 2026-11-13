@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 using Newtonsoft.Json;
 
 [Serializable]
@@ -94,6 +95,117 @@ public class SupabaseManager : MonoBehaviour
             Debug.Log($"[SupabaseManager] 🟢 Auto-loaded Session ID: {currentUserId}");
             PreloadAll();   // 📦 มีผู้เล่นค้างไว้ในเครื่อง -> โหลดข้อมูลเก็บไว้ตั้งแต่เปิดเกม
         }
+    }
+
+    // ==================== 🔐 Session: ล็อกอินได้ทีละเครื่อง ====================
+    // ทุกครั้งที่ล็อกอิน/สมัคร สร้างรหัส session ใหม่ (GUID) เก็บไว้ทั้งใน user.session_token และในเครื่อง (PlayerPrefs)
+    // เครื่องที่ล็อกอินอยู่จะเช็กทุก sessionCheckInterval วินาที และตอนกลับเข้าแอป ว่ารหัสในเครื่องยังตรงกับใน DB ไหม
+    // ไม่ตรง = มีเครื่องอื่นล็อกอินบัญชีนี้ทับไปแล้ว -> ล้างข้อมูลในเครื่องนี้ แล้วเด้งกลับ MainMenu (MainMenuManager โชว์ป๊อปอัปแจ้ง)
+    private const string SESSION_TOKEN_KEY = "SessionToken";
+    [Header("🔐 Session (ล็อกอินได้ทีละเครื่อง)")]
+    public float sessionCheckInterval = 10f;      // เช็กทุกกี่วินาที
+    public string mainMenuSceneName = "MainMenu"; // ฉากที่เด้งกลับไปตอนถูกล็อกอินทับ
+    public static bool kickedByOtherDevice = false;   // true = เพิ่งถูกเด้งออก ให้ MainMenuManager โชว์ป๊อปอัป
+    private bool isWritingSession = false;   // กำลังบันทึกรหัสใหม่ -> ยังไม่เช็ก (กันเด้งตัวเองระหว่างล็อกอิน)
+    private bool isCheckingSession = false;
+    private float nextSessionCheckTime = 0f;
+
+    // เรียกหลังล็อกอิน/สมัครสำเร็จ: สร้างรหัสใหม่ บันทึกลง DB (พร้อม last_login_at) แล้วค่อยเก็บในเครื่อง
+    // ใช้ StartCoroutine ของ SupabaseManager เพราะอยู่ข้ามฉาก (MainMenu เปลี่ยนฉากระหว่างรอได้)
+    public IEnumerator StartNewSession(string userId)
+    {
+        isWritingSession = true;
+        string token = Guid.NewGuid().ToString("N");
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, object>
+        {
+            { "session_token", token },
+            { "last_login_at", DateTime.UtcNow.ToString("o") }
+        });
+
+        using (UnityWebRequest request = new UnityWebRequest($"{supabaseUrl}/rest/v1/user?user_id=eq.{UnityWebRequest.EscapeURL(userId)}", "PATCH"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            SetSupabaseHeaders(request);
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                PlayerPrefs.SetString(SESSION_TOKEN_KEY, token);
+                PlayerPrefs.Save();
+                Debug.Log($"[Session] 🔐 เริ่ม session ใหม่ของ {userId}");
+            }
+            else
+            {
+                Debug.LogError($"[Session] 🔴 บันทึก session ไม่สำเร็จ: {request.error} | {request.downloadHandler.text}");
+            }
+        }
+        isWritingSession = false;
+    }
+
+    // เช็กตามรอบเวลา (ใช้ unscaledTime เผื่อเกมหยุดเวลา timeScale = 0)
+    private void Update()
+    {
+        if (Time.unscaledTime < nextSessionCheckTime) return;
+        nextSessionCheckTime = Time.unscaledTime + Mathf.Max(1f, sessionCheckInterval);
+        CheckSessionNow();
+    }
+
+    // สลับกลับเข้าแอป (เช่น พับแอปไปแล้วเปิดใหม่) -> เช็กทันที ไม่ต้องรอรอบ
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus) CheckSessionNow();
+    }
+
+    public void CheckSessionNow()
+    {
+        if (isWritingSession || isCheckingSession || string.IsNullOrEmpty(currentUserId)) return;
+        StartCoroutine(CheckSessionRoutine());
+    }
+
+    private IEnumerator CheckSessionRoutine()
+    {
+        isCheckingSession = true;
+        string userId = currentUserId;
+        string dbToken = null;
+        bool gotAnswer = false;
+
+        using (UnityWebRequest request = UnityWebRequest.Get($"{supabaseUrl}/rest/v1/user?select=session_token&user_id=eq.{UnityWebRequest.EscapeURL(userId)}"))
+        {
+            SetSupabaseHeaders(request);
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var rows = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(request.downloadHandler.text);
+                dbToken = (rows != null && rows.Count > 0 && rows[0].ContainsKey("session_token")) ? rows[0]["session_token"] : null;
+                gotAnswer = true;
+            }
+            // เน็ตหลุด -> ไม่ตัดสิน (ไม่เด้งออก) รอเช็กรอบหน้า และไม่เขียน error ทุก 10 วิ
+        }
+        isCheckingSession = false;
+
+        // ไม่ได้คำตอบ / กำลังล็อกอินใหม่ / เปลี่ยนบัญชีระหว่างรอ -> ข้ามรอบนี้
+        if (!gotAnswer || isWritingSession || userId != currentUserId) yield break;
+
+        // รหัสตรงกัน (หรือทั้งคู่ว่าง = ยังไม่มีใครล็อกอินด้วยระบบนี้) -> ปกติ
+        string localToken = PlayerPrefs.GetString(SESSION_TOKEN_KEY, "");
+        if ((dbToken ?? "") == localToken) yield break;
+
+        Debug.LogWarning($"[Session] 🔐 บัญชี {userId} ถูกเข้าสู่ระบบจากเครื่องอื่น -> ออกจากระบบเครื่องนี้");
+        ClearLocalSession();
+        kickedByOtherDevice = true;
+        SceneManager.LoadScene(mainMenuSceneName);
+    }
+
+    // ล้างข้อมูลผู้เล่นในเครื่องนี้ (ออกจากระบบ / ลบบัญชี / ถูกล็อกอินทับ) ข้อมูลใน DB ไม่ถูกลบ
+    public void ClearLocalSession()
+    {
+        PlayerPrefs.DeleteKey("SavedUserId");
+        PlayerPrefs.DeleteKey(SESSION_TOKEN_KEY);
+        PlayerPrefs.Save();
+        currentUserId = "";
+        ClearPlayerCache();
     }
 
     // ==================== 📦 Cache ข้อมูลผู้เล่น ====================
@@ -1702,11 +1814,8 @@ public class SupabaseManager : MonoBehaviour
             {
                 Debug.Log($"[DeleteAccount] 🟢 ลบบัญชี {userId} สำเร็จ");
 
-                // ล้างข้อมูลผู้เล่นที่จำไว้ในเครื่อง
-                PlayerPrefs.DeleteKey("SavedUserId");
-                PlayerPrefs.Save();
-                currentUserId = "";
-                ClearPlayerCache();   // 📦 ล้าง cache ของบัญชีที่ลบไป
+                // ล้างข้อมูลผู้เล่นที่จำไว้ในเครื่อง (id + รหัส session + cache)
+                ClearLocalSession();
 
                 onSuccess?.Invoke();
             }

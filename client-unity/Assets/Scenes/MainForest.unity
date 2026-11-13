@@ -10768,6 +10768,8 @@ MonoBehaviour:
   supabaseUrl: https://xwvqxyeybgwiaxpodnaq.supabase.co
   supabaseAnonKey: sb_publishable_14M9lB3dIwbc-eOX-LbK-w_A-3mv1UR
   currentUserId: 
+  sessionCheckInterval: 10
+  mainMenuSceneName: MainMenu
   cachedInventoryJson: 
   cachedPlayerPlantJson: 
   cachedSpeciesJson: 
@@ -26259,21 +26261,32 @@ MonoBehaviour:
   isSick: 0
   sickUntil: 
   immunityShields: 0
-  hoursDryBeforeSick: 5
+  dryHoursBeforeSick: 24
+  dryPenaltyIntervalHours: 24
+  sickHeartPenalty: 5
+  dryPenaltyAt: 
   relationshipScore: 90
   flowerCoins: 0
   playerEXP: 0
+  maxRelationship: 120
+  maxFertilizerPerDay: 5
+  maxHeartFromItemsPerDay: 20
+  waterNutrientPerHour: 5
+  waterAbsorbSeconds: 600
+  ignoreDailyLimits: 0
+  waterPoolTotal: 0
+  waterPoolAbsorbed: 0
+  waterPoolStartedAt: 
+  fertUsedToday: 0
+  heartGainedToday: 0
+  dailyCountDate: 
   lastWateredAt: 
   plantedAt: 
   friendWateredAt: 
   testModeInSeconds: 0
-  currentActiveBuff: None
-  buffRemainingSeconds: 0
   expMultiplier: 1
   coinMultiplier: 1
   relationshipMultiplier: 1
-  baseMoistureFromWater: 10
-  baseNutrientsFromWater: 2
   baseExpFromWater: 15
   baseCoinsFromWater: 10
   baseRelationshipFromWater: 5
@@ -26283,6 +26296,7 @@ MonoBehaviour:
   baseExpFromFertilizer: 25
   baseCoinsFromFertilizer: 15
   baseRelationshipFromFertilizer: 10
+  debugChameleonChance: -1
   expFromStageUp: 50
   masterSpeciesList: []
   masterStagesList: []
