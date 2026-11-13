@@ -59,7 +59,7 @@ top_p = 0.6
 repetition_penalty = 1.2
 pages = None
 extracted_text = extract_text_from_image(image_path, api_key, model, task_type, max_tokens, temperature, top_p, repetition_penalty, pages)
-print(extracted_text)
+#print(extracted_text)
 
 
 import re
@@ -110,13 +110,6 @@ def verify_certificate_text(raw_text: str, max_age_years: int = 1) -> dict:
     # 4. เงื่อนไขที่ 3: ตรวจสอบอายุเกียรติบัตรเทียบกับปีปัจจุบัน
     current_year_be = datetime.now().year + 543
     min_allowed_year = current_year_be - max_age_years
-
-    if cert_year > current_year_be:
-        return {
-            "is_valid": False,
-            "reason": f"ปีบนเอกสาร (พ.ศ. {cert_year}) เกินปีปัจจุบัน (พ.ศ. {current_year_be})",
-            "year": cert_year
-        }
 
     if cert_year < min_allowed_year:
         return {
