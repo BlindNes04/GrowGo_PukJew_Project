@@ -40,7 +40,7 @@ public class WeatherManager : MonoBehaviour
         }
         else
         {
-            // 🔁 [แก้บัค] กลับเข้า MainForest อีกรอบ: ตัวจริง (DontDestroyOnLoad) ยังถือ Background ของซีนเก่าที่ถูกทำลายไปแล้ว
+            // 🔁 กลับเข้า MainForest อีกรอบ: ตัวจริง (DontDestroyOnLoad) ยังถือ Background ของซีนเก่าที่ถูกทำลายไปแล้ว
             //    เลยส่ง Background ของซีนใหม่ให้ตัวจริง แล้วคำนวณ/เปลี่ยนรูปตามสภาพอากาศวันนี้ใหม่ ก่อนทำลายตัวซ้ำทิ้ง
             if (backgroundDisplayImage != null)
                 Instance.backgroundDisplayImage = backgroundDisplayImage;
@@ -50,8 +50,7 @@ public class WeatherManager : MonoBehaviour
         }
     }
 
-    // 🕛 [แก้บัค] เวลาไทย (UTC+7) ให้วันเปลี่ยนตอนเที่ยงคืนไทย เหมือน stamina / daily reward
-    //    (เดิมใช้ UTC ทำให้วันเปลี่ยนตอน 7 โมงเช้าไทย แต่ popup นับถอยหลังถึงเที่ยงคืน ไม่ตรงกัน)
+    // 🕛 เวลาไทย (UTC+7) ให้วันเปลี่ยนตอนเที่ยงคืนไทย เหมือน stamina / daily reward / popup นับถอยหลัง
     public static DateTime GetThaiNow()
     {
         return DateTime.UtcNow.AddHours(7);
@@ -62,7 +61,7 @@ public class WeatherManager : MonoBehaviour
         FetchWeatherAndInit();
     }
 
-    // 🕛 [แก้บัค] เปิดเกมค้างข้ามเที่ยงคืน (เวลาไทย) -> คำนวณอากาศวันใหม่ + เปลี่ยนพื้นหลัง + อัปเดต UI ต้นไม้
+    // 🕛 เปิดเกมค้างข้ามเที่ยงคืน (เวลาไทย) -> คำนวณอากาศวันใหม่ + เปลี่ยนพื้นหลัง + อัปเดต UI ต้นไม้
     private void Update()
     {
         if (lastWeatherDate == DateTime.MinValue) return;   // ยังโหลดอากาศครั้งแรกไม่เสร็จ
@@ -122,7 +121,7 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherMasterList == null || weatherMasterList.Count == 0) return;
 
-        DateTime nowUtc = GetThaiNow();   // [แก้บัค] ใช้เวลาไทย (ชื่อตัวแปรคงเดิมไว้)
+        DateTime nowUtc = GetThaiNow();   // เวลาไทย (ชื่อตัวแปร nowUtc เป็นชื่อเก่า)
 
         // 🟢 คำนวณ Day Index (จันทร์ = 0, ..., เสาร์ = 5, อาทิตย์ = 6)
         currentDayIndex = ((int)nowUtc.DayOfWeek + 6) % 7;
@@ -153,8 +152,8 @@ public class WeatherManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 🔮 [แก้บัค] ดูอากาศของ "อีก N วันข้างหน้า" ข้ามไปสัปดาห์หน้าได้
-    /// (เดิม popup ใช้ GetWeatherForDayIndex วน % 7 ทำให้ปลายสัปดาห์ไปดูวันต้นสัปดาห์นี้ที่ผ่านไปแล้ว)
+    /// 🔮 ดูอากาศของ "อีก N วันข้างหน้า" ข้ามไปสัปดาห์หน้าได้
+    /// (ใช้แทน GetWeatherForDayIndex ที่วน % 7 แล้วปลายสัปดาห์จะไปได้วันต้นสัปดาห์นี้ที่ผ่านไปแล้ว)
     /// </summary>
     public SupabaseWeather GetWeatherForDaysAhead(int daysAhead)
     {
@@ -305,7 +304,7 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherMasterList == null || weatherMasterList.Count == 0) UseFallbackMasterData();
 
-        DateTime nowUtc = GetThaiNow();   // [แก้บัค] ใช้เวลาไทย ให้ตรงกับ UpdateWeeklyWeather
+        DateTime nowUtc = GetThaiNow();   // เวลาไทย ให้ตรงกับ UpdateWeeklyWeather
         int dayIndex = ((int)nowUtc.DayOfWeek + 6) % 7;
         DateTime monday = nowUtc.Date.AddDays(-dayIndex);
 

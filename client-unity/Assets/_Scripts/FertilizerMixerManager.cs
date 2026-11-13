@@ -181,12 +181,17 @@ public class FertilizerMixerManager : MonoBehaviour
             return;
         }
 
+        // 📦 ใช้กระเป๋าจาก cache ก่อนทันที แล้วค่อยดึง DB ใหม่ทับ
+        string cachedJson = SupabaseManager.Instance.GetCachedInventory();
+        if (!string.IsNullOrEmpty(cachedJson)) ParseInventory(cachedJson);
+
         isLoadingInventory = true;
         StartCoroutine(SupabaseManager.Instance.GetUserInventory(
             onSuccess: (json) =>
             {
                 isLoadingInventory = false;
-                ParseInventory(json);
+                // ข้อมูลเหมือน cache -> ไม่ต้องทำใหม่ / ถ้าผู้เล่นใส่วัตถุดิบลงหม้อแล้ว ไม่ทับ (ช่องในหม้อจำลำดับของในลิสต์ไว้)
+                if (json != cachedJson && Array.IndexOf(isSlotFilled, true) < 0) ParseInventory(json);
             },
             onError: (err) =>
             {

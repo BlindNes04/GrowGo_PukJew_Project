@@ -113,6 +113,10 @@ public class PlantStoreController : MonoBehaviour
         string plantId = PlayerPrefs.GetString("Plant_PlayerPlantId", "");
         if (string.IsNullOrEmpty(plantId)) { relationshipText.text = "0"; return; }
 
+        // 📦 โชว์หัวใจจาก cache ก่อน (ไม่ต้องเห็นค่า default) แล้วค่อยดึง DB ใหม่ด้านล่าง
+        SupabasePlayerPlant cachedPlant = SupabaseManager.Instance.GetCachedPlant(plantId);
+        if (cachedPlant != null) relationshipText.text = cachedPlant.relationship_score.ToString();
+
         StartCoroutine(SupabaseManager.Instance.GetRest($"player_plant?select=relationship_score&player_plant_id=eq.{plantId}", json =>
         {
             var rows = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(json);
@@ -146,6 +150,9 @@ public class PlantStoreController : MonoBehaviour
             Sprite icon = GetIcon(item.shop_item_id) ?? GetIcon(item.target_item_id);
             Sprite currency = item.price_type == "green_points" ? greenPointIcon : flowerPointIcon;
             slot.Setup(item, icon, currency, BuildDescription(item), OnBuyClicked);
+            // 🐻 หมี: โชว์ราคาเมล็ดหลังลด
+            int bearDiscount = GetBearDiscount(item);
+            if (bearDiscount > 0 && slot.priceText != null) slot.priceText.text = $"{item.price_amount - bearDiscount} (-{Mathf.RoundToInt(BuffManager.Instance.activeBuddySkillValue * 100)}%)";
             spawnedSlots.Add(slot);
         }
         // ถ้าใช้ ShopItemSlot ที่วางไว้ใน Content เป็นต้นแบบ (ไม่ได้ทำเป็น prefab) ให้ซ่อนตัวต้นแบบไว้
@@ -180,7 +187,7 @@ public class PlantStoreController : MonoBehaviour
         // เช็คแต้มในเครื่องก่อน (DB จะเช็คซ้ำอีกรอบ)
         var db = SupabaseManager.Instance;
         int have = item.price_type == "green_points" ? db.playerGreenPoints : db.playerFlowerPoints;
-        if (have < item.price_amount)
+        if (have < item.price_amount - GetBearDiscount(item))   // 🐻 เทียบกับราคาหลังลด (ตรงกับที่ DB คิด)
         {
             ShowBuyFail(NotEnoughText(item.price_type));
             return;
@@ -190,6 +197,7 @@ public class PlantStoreController : MonoBehaviour
         StartCoroutine(db.BuyShopItem(item.shop_item_id, result =>
         {
             SetBusy(false);
+            if (result.success) GiveSeedBuddyBonus(item, result);   // 🐿️ กระรอก: ได้เมล็ดแล้วได้แต้มคืน
             if (result.success) ShowReward(result.got_item_name, GetIcon(result.got_item_id));
             else ShowBuyFail(TranslateBuyMessage(result.message));
         },
@@ -198,6 +206,33 @@ public class PlantStoreController : MonoBehaviour
             SetBusy(false);
             ShowBuyFail("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
         }));
+    }
+
+    // ==================== 🐾 สกิลบัดดี้ในร้านค้า ====================
+    // 🐻 หมี SEED_PRICE_DISCOUNT: ใช้แต้มดอกไม้ซื้อเมล็ดถูกลง (ค่าในตาราง buddy = 0.1 = 10%)
+    //    ราคาจริงหักใน RPC buy_shop_item ที่ DB (เช็กบัดดี้ของผู้เล่นเองฝั่งเซิร์ฟเวอร์ โกงจากเครื่องไม่ได้)
+    //    ฝั่งเกมแค่โชว์ราคาลด + เช็กแต้มก่อนกดซื้อ ให้ตรงกับที่ DB คิด
+    //    ลดเฉพาะ: ซื้อเมล็ดตรงๆ (DIRECT_ITEM ที่ได้ ITEM_SEED_) และจ่ายด้วยแต้มดอกไม้ (เชอร์รี่ใช้แต้มเขียว ไม่ลด)
+    private int GetBearDiscount(SupabaseManager.ShopItemData item)
+    {
+        BuffManager buff = BuffManager.Instance;
+        bool isFlowerSeed = item.item_type == "DIRECT_ITEM" && item.price_type == "flower_points"
+                            && !string.IsNullOrEmpty(item.target_item_id) && item.target_item_id.StartsWith("ITEM_SEED_");
+        if (!buff.Has(SkillType.SEED_PRICE_DISCOUNT) || !isFlowerSeed) return 0;
+        return item.price_amount - Mathf.RoundToInt(item.price_amount * (1f - buff.activeBuddySkillValue));
+    }
+
+    // ซื้อสำเร็จ: 🐿️ กระรอก SEED_CASHBACK ได้เมล็ด -> ได้แต้มดอกไม้คืน (ค่าในตาราง buddy = 5)
+    private void GiveSeedBuddyBonus(SupabaseManager.ShopItemData item, SupabaseManager.BuyShopResult result)
+    {
+        var db = SupabaseManager.Instance;
+        BuffManager buff = BuffManager.Instance;
+
+        if (buff.Has(SkillType.SEED_CASHBACK) && !string.IsNullOrEmpty(result.got_item_id) && result.got_item_id.StartsWith("ITEM_SEED_"))
+        {
+            db.AddPlayerExpAndFlower(0, Mathf.RoundToInt(buff.activeBuddySkillValue));
+            Debug.Log($"[Buddy] 🐿️ กระรอกให้แต้มดอกไม้คืน {buff.activeBuddySkillValue}");
+        }
     }
 
     private string TranslateBuyMessage(string message)

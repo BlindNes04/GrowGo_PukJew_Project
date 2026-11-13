@@ -56,10 +56,14 @@ public class NourishPopupView : MonoBehaviour
             return;
         }
 
+        // 📦 วาดของบำรุงจาก cache ทันที แล้วค่อยดึง DB ใหม่ (ถ้าเหมือนเดิมไม่ต้องวาดซ้ำ)
+        string cachedJson = SupabaseManager.Instance.GetCachedInventory();
+        if (!string.IsNullOrEmpty(cachedJson)) ParseAndRenderNourishSlots(cachedJson);
+
         StartCoroutine(SupabaseManager.Instance.GetUserInventory(
             onSuccess: (json) =>
             {
-                ParseAndRenderNourishSlots(json);
+                if (json != cachedJson) ParseAndRenderNourishSlots(json);
             },
             onError: (err) =>
             {
@@ -209,6 +213,14 @@ public class NourishPopupView : MonoBehaviour
 
         // 🌿 1. สั่งบำรุงพืช (เพิ่มค่าสารอาหาร +25, EXP +25, Coins +15, Relationship +10)
         PlantStatus plant = FindAnyObjectByType<PlantStatus>();
+
+        // 📅 โควตาปุ๋ยรายวัน: ครบแล้ว -> ไม่ใช้ ไม่หักของ และขึ้นข้อความในกล่องรายละเอียดแทน
+        if (plant != null && !plant.CanUseItemNow(selectedItem, out string quotaMessage))
+        {
+            if (descText != null) descText.text = quotaMessage;
+            return;
+        }
+
         if (plant != null)
         {
             plant.ApplyFertilizerFromSupabase(selectedItem);

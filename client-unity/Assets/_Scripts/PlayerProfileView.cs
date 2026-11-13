@@ -63,7 +63,7 @@ public class PlayerProfileView : MonoBehaviour
     public TextMeshProUGUI statRecipesText;    // ค้นพบสูตรปุ๋ย (user_recipe_discovery)
     public TextMeshProUGUI statExploreText;    // ออกผจญภัย (behavior_log: explore_island)
     public TextMeshProUGUI statMinigameText;   // เล่นมินิเกม (behavior_log: play_block_blast + play_fruit_merge)
-    public TextMeshProUGUI statHelpText;       // ช่วยเพื่อนบ้าน (behavior_log: water_friend_tree, ยังไม่มีระบบ)
+    public TextMeshProUGUI statHelpText;       // ช่วยเพื่อนบ้าน (behavior_log: water_friend_tree)
 
     // ---------- 3) ป๊อปอัป Level Up ----------
     [Header("ป๊อปอัป Level Up")]
@@ -99,6 +99,13 @@ public class PlayerProfileView : MonoBehaviour
         if (expRingFill != null) expRingFill.fillAmount = 0f;   // เริ่มจากหลอดว่าง (สีเทา) แล้ววิ่งขึ้น
 
         plant = FindAnyObjectByType<PlantStatus>();
+
+        // ⚡ ถ้าเคยโหลดค่าผู้เล่นไว้แล้ว (SupabaseManager อยู่ข้ามฉาก) โชว์ค่าเดิมทันที ไม่ต้องเห็นค่า default แวบนึง
+        if (SupabaseManager.Instance.playerStatsLoaded)
+        {
+            RefreshUI();
+            if (expRingFill != null) expRingFill.fillAmount = ringTarget;   // ไม่ต้องวิ่งจาก 0 ใหม่ทุกครั้งที่เปลี่ยนฉาก
+        }
 
         // โหลดค่าผู้เล่นทุกครั้งที่เข้าฉาก (ได้ค่าล่าสุดจาก DB)
         SupabaseManager.Instance.LoadPlayerStats();
@@ -198,11 +205,33 @@ public class PlayerProfileView : MonoBehaviour
     // ---------- ฉายา + สถิติ (ดึงจาก DB ทุกครั้งที่เปิดป๊อปอัป) ----------
     private class Row { public string cluster_name; public string activity_type; }
 
+    // ⚡ จำสถิติรอบล่าสุดไว้ (static = อยู่ข้ามฉาก) เปิดป๊อปอัปแล้วโชว์ค่านี้ก่อน แล้วค่อยอัปเดตเมื่อโหลดเสร็จ
+    //    ยังไม่เคยโหลดเลย = โชว์ "-"
+    private static string cachedUserId = "";
+    private static string cachedTitle = "";
+    private static int[] cachedStats = null;   // สะสมพืช, สูตรปุ๋ย, ผจญภัย, มินิเกม, ช่วยเพื่อน
+
+    private void ShowCachedStats(string uid)
+    {
+        bool has = cachedStats != null && cachedUserId == uid;   // ข้อมูลของคนอื่น (เปลี่ยนบัญชี) ไม่เอามาโชว์
+        TextMeshProUGUI[] targets = { statPlantsText, statRecipesText, statExploreText, statMinigameText, statHelpText };
+        for (int i = 0; i < targets.Length; i++)
+            if (targets[i] != null) targets[i].text = has ? cachedStats[i].ToString() : "-";
+        if (popupTitleText != null) popupTitleText.text = has ? cachedTitle : "";
+    }
+
+    private void SaveStatToCache(string uid, int index, int value)
+    {
+        if (cachedStats == null || cachedUserId != uid) { cachedStats = new int[5]; cachedUserId = uid; cachedTitle = ""; }
+        cachedStats[index] = value;
+    }
+
     private IEnumerator LoadTitleAndStats()
     {
         SupabaseManager db = SupabaseManager.Instance;
         string uid = db.GetActiveUserId();
         if (string.IsNullOrEmpty(uid)) yield break;
+        ShowCachedStats(uid);
 
         // ฉายา : user.cluster_id -> cluster_profile.cluster_name (K-means เป็นคนอัปเดต cluster_id)
         if (popupTitleText != null && !string.IsNullOrEmpty(db.playerClusterId))
@@ -211,16 +240,17 @@ public class PlayerProfileView : MonoBehaviour
             {
                 var rows = JsonConvert.DeserializeObject<List<Row>>(json);
                 popupTitleText.text = (rows != null && rows.Count > 0) ? rows[0].cluster_name : "";
+                if (cachedUserId == uid) cachedTitle = popupTitleText.text;
             });
         }
 
         // สะสมพืช : จำนวนร่างที่ปลดล็อกใน Plant Dex
         yield return db.GetRest($"user_collection?select=stage_id&user_id=eq.{uid}", json =>
-            SetCount(statPlantsText, json));
+            SaveStatToCache(uid, 0, SetCount(statPlantsText, json)));
 
         // ค้นพบสูตรปุ๋ย
         yield return db.GetRest($"user_recipe_discovery?select=recipe_id&user_id=eq.{uid}", json =>
-            SetCount(statRecipesText, json));
+            SaveStatToCache(uid, 1, SetCount(statRecipesText, json)));
 
         // ผจญภัย / มินิเกม / ช่วยเพื่อนบ้าน : นับจาก behavior_log
         yield return db.GetRest($"behavior_log?select=activity_type&user_id=eq.{uid}&activity_type=in.(explore_island,play_block_blast,play_fruit_merge,water_friend_tree)", json =>
@@ -236,14 +266,17 @@ public class PlayerProfileView : MonoBehaviour
             if (statExploreText != null) statExploreText.text = explore.ToString();
             if (statMinigameText != null) statMinigameText.text = minigame.ToString();
             if (statHelpText != null) statHelpText.text = help.ToString();
+            SaveStatToCache(uid, 2, explore); SaveStatToCache(uid, 3, minigame); SaveStatToCache(uid, 4, help);
         });
     }
 
-    private void SetCount(TextMeshProUGUI target, string json)
+    // นับจำนวนแถว แล้วใส่ตัวเลข (คืนค่าตัวเลขไว้เก็บลง cache ด้วย)
+    private int SetCount(TextMeshProUGUI target, string json)
     {
-        if (target == null) return;
         var rows = JsonConvert.DeserializeObject<List<Row>>(json);
-        target.text = (rows != null ? rows.Count : 0).ToString();
+        int count = rows != null ? rows.Count : 0;
+        if (target != null) target.text = count.ToString();
+        return count;
     }
 
     // ==================== ป๊อปอัป Level Up ====================

@@ -102,6 +102,18 @@ public class SettingPopupController : MonoBehaviour
         if (string.IsNullOrEmpty(uid)) { Debug.LogWarning("[Setting] ไม่มี user id เลยดึงข้อมูลบัญชีไม่ได้"); return; }
         if (!gameObject.activeInHierarchy) return;
 
+        // 📦 โชว์จาก cache ก่อน (โหลดไว้ตอนเปิดเกม) ไม่ต้องเห็นช่องว่าง/ค่า default ระหว่างรอ DB
+        if (db.playerStatsLoaded)
+        {
+            if (userTagText != null) userTagText.text = uid + db.playerTag;
+            SetPlaceholder(idInput, uid);
+            SetPlaceholder(usernameInput, db.playerUsername);
+            SetPlaceholder(emailInput, db.playerEmail);
+            SetPlaceholder(passwordInput, "********");
+            if (profileImage != null && !string.IsNullOrEmpty(db.playerBuddyId)) StartCoroutine(LoadProfileImage(db.playerBuddyId));
+        }
+
+        // แล้วค่อยดึงจาก DB ใหม่เงียบๆ
         StartCoroutine(db.GetRest($"user?select=user_id,user_tag,username,email,buddy_id&user_id=eq.{uid}", json =>
         {
             Debug.Log($"[Setting] ข้อมูลบัญชี: {json}");
@@ -263,7 +275,7 @@ public class SettingPopupController : MonoBehaviour
         if (SupabaseManager.Instance != null)
         {
             SupabaseManager.Instance.currentUserId = "";
-            SupabaseManager.Instance.playerStatsLoaded = false;   // ให้โหลดเลเวล/แต้มของคนใหม่ตอนล็อกอิน
+            SupabaseManager.Instance.ClearPlayerCache();   // 📦 ล้าง cache + เลเวล/แต้ม ให้โหลดของคนใหม่ตอนล็อกอิน
         }
 
         SceneManager.LoadScene(sceneAfterDelete);   // ใช้ฉากเดียวกับตอนลบบัญชี (MainMenu)

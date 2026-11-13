@@ -112,7 +112,7 @@ public class WeatherPopupController : MonoBehaviour
         // ถ้าวันนี้อากาศปกติ ไม่ต้องนับถอยหลังรายชั่วโมง (เพราะแสดงวันที่จะมาถึงแทนแล้ว)
         if (currentWeather == null || currentWeather.weather_id == "WTH_CLEAR") return;
 
-        DateTime now = WeatherManager.GetThaiNow();   // [แก้บัค] เวลาไทย ให้ตรงกับวันที่ WeatherManager ใช้ (เดิมใช้เวลาเครื่อง)
+        DateTime now = WeatherManager.GetThaiNow();   // เวลาไทย ให้ตรงกับวันที่ WeatherManager ใช้
         DateTime midnight = now.Date.AddDays(1); // เที่ยงคืนของวันถัดไป
         TimeSpan remaining = midnight - now;
 
@@ -135,7 +135,7 @@ public class WeatherPopupController : MonoBehaviour
     {
         if (WeatherManager.Instance == null) return;
 
-        DateTime nowUtc = WeatherManager.GetThaiNow();   // [แก้บัค] เวลาไทย ให้ตรงกับ WeatherManager
+        DateTime nowUtc = WeatherManager.GetThaiNow();   // เวลาไทย ให้ตรงกับ WeatherManager
         int currentDayIndex = ((int)nowUtc.DayOfWeek + 6) % 7; // วันนี้ Index อะไร (0-6)
 
         // วนลูปเช็กวันถัดไป 1 ถึง 6 วันข้างหน้า
@@ -144,7 +144,7 @@ public class WeatherPopupController : MonoBehaviour
             int checkIndex = (currentDayIndex + i) % 7;
 
             // ดึงสภาพอากาศของวันนั้นมาจาก WeatherManager
-            // [แก้บัค] ใช้ GetWeatherForDaysAhead ให้ดูข้ามไปสัปดาห์หน้าได้ (เดิมวน % 7 กลับไปวันที่ผ่านมาแล้ว)
+            // ใช้ GetWeatherForDaysAhead ให้ดูข้ามไปสัปดาห์หน้าได้
             SupabaseWeather targetWeather = WeatherManager.Instance.GetWeatherForDaysAhead(i);
 
             // ถ้าเจอวันที่มีสภาพอากาศพิเศษ (ไม่ใช่ WTH_CLEAR)

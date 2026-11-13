@@ -31,12 +31,21 @@ public class AddFriendViewController : MonoBehaviour
             friendReqButton.onClick.AddListener(OnPendingRequestsClicked);
 
         LoadBuddySprites();
-        FetchRecommendedFriends();
+        // รายชื่อแนะนำโหลดใน OnEnable แทน (OnEnable ทำงานก่อน Start อยู่แล้ว)
+    }
+
+    // ==================== โหลดรายชื่อแนะนำทุกครั้งที่เปิดแท็บ ====================
+    // ถ้าแท็บถูกปิดระหว่างโหลด Coroutine จะหยุดกลางทาง จึงโหลดใหม่ทุกครั้งที่เปิดแท็บ
+    // (ถ้าช่องค้นหามีคำค้นค้างอยู่ จะค้นหาคำนั้นแทน)
+    private void OnEnable()
+    {
+        OnSearchClicked();   // ช่องค้นหาว่าง = โหลดรายชื่อแนะนำ / มีคำค้น = ค้นหาใหม่
     }
 
     // 1. ดึงรายการแนะนำผู้เล่น
     public void FetchRecommendedFriends()
     {
+        if (!isActiveAndEnabled) return;   // แท็บปิดอยู่ -> รอโหลดตอนเปิดแท็บ (OnEnable)
         ClearContent();
         StartCoroutine(FetchRecommendedFriendsRoutine());
     }
@@ -74,7 +83,7 @@ public class AddFriendViewController : MonoBehaviour
         yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
 
         // Step C: กรองและสปอว์น Prefab แสดงบน UI
-        // 🤝 สุ่มลำดับก่อนหยิบ 10 คน (เดิมได้ 10 คนแรกของตารางเสมอ ทุกคนเห็นชุดเดิม)
+        // 🤝 สุ่มลำดับก่อนหยิบ 10 คน (ไม่งั้นทุกคนจะเห็น 10 คนแรกของตารางชุดเดิม)
         if (allUsers != null)
         {
             var recommendedUsers = allUsers
@@ -97,6 +106,7 @@ public class AddFriendViewController : MonoBehaviour
             return;
         }
 
+        if (!isActiveAndEnabled) return;   // แท็บปิดอยู่ -> ไม่เริ่ม Coroutine (กัน error inactive)
         ClearContent();
         StartCoroutine(SearchUserRoutine(queryTag));
     }
@@ -113,22 +123,26 @@ public class AddFriendViewController : MonoBehaviour
         ));
         if (searchResults == null) yield break;
 
-        // 🤝 ตัดคนที่เป็นเพื่อนกันแล้ว และคนที่เราส่งคำขอไปแล้วออก (เดิมกดส่งซ้ำได้ แล้ว error 409)
+        // 🤝 ตัดคนที่เป็นเพื่อนกันแล้ว และคนที่เราส่งคำขอไปแล้วออก (กันกดส่งซ้ำแล้ว DB ตอบ error 409)
         //    คนที่ส่งคำขอมาหาเรายังโชว์อยู่ กดแอด = เป็นเพื่อนกันทันที (DB auto accept)
         yield return StartCoroutine(SupabaseManager.Instance.GetFriendships(
             (json) => { friendships = JsonConvert.DeserializeObject<List<FriendshipData>>(json); },
             (error) => { Debug.LogError($"[Social] Get Friendships Error: {error}"); }
         ));
 
+        // ==================== ผลค้นหา: ซ่อนแค่เพื่อน / คนที่ส่งไปแล้วยังโชว์ (ปุ่มเทา) ====================
+        // คนที่เราส่งคำขอค้างไว้ (pending) ยังโชว์ในผลค้นหา แต่ปุ่มแอดเป็นสีเทากดไม่ได้
+        // ผู้เล่นจะรู้ว่าส่งไปแล้ว รออีกฝ่ายตอบรับ (ไม่ใช่ค้นหาแล้วไม่เจอเหมือนไม่มีคนนี้)
         HashSet<string> hiddenUserIds = new HashSet<string> { currentUserId };
+        HashSet<string> sentUserIds = new HashSet<string>();
         if (friendships != null)
         {
             foreach (var f in friendships)
             {
                 bool iAmRequester = f.requesterId == currentUserId;
                 string otherId = iAmRequester ? f.addresseeId : f.requesterId;
-                if (f.status == "accepted") hiddenUserIds.Add(otherId);              // เป็นเพื่อนแล้ว
-                else if (f.status == "pending" && iAmRequester) hiddenUserIds.Add(otherId); // เราส่งไปแล้ว
+                if (f.status == "accepted") hiddenUserIds.Add(otherId);              // เป็นเพื่อนแล้ว (อยู่ในหน้าเพื่อนอยู่แล้ว)
+                else if (f.status == "pending" && iAmRequester) sentUserIds.Add(otherId); // เราส่งไปแล้ว -> โชว์ปุ่มเทา
             }
         }
 
@@ -140,11 +154,13 @@ public class AddFriendViewController : MonoBehaviour
             .OrderByDescending(u => (u.userId ?? "").ToLower() == kw
                                  || (u.username ?? "").ToLower() == kw
                                  || (u.userTag ?? "").TrimStart('#').ToLower() == kw)
-            .ToList());
+            .ToList(), sentUserIds);
     }
 
-    // 3. กดส่งคำขอเป็นเพื่อน
-    private void OnSendFriendRequestClicked(string targetUserId)
+    // ==================== กดส่งคำขอเป็นเพื่อน ====================
+    // ปุ่มเป็นสีเทาเมื่อ DB ตอบว่าส่งสำเร็จเท่านั้น
+    // ส่งไม่สำเร็จ (เน็ตหลุด / DB ปฏิเสธ) -> คืนปุ่มให้กดใหม่ได้ + เขียน log บอกเหตุผล
+    private void OnSendFriendRequestClicked(string targetUserId, FriendItemView itemView)
     {
         StartCoroutine(SupabaseManager.Instance.SendFriendRequest(targetUserId,
             onSuccess: () => {
@@ -152,8 +168,16 @@ public class AddFriendViewController : MonoBehaviour
             },
             onError: (error) => {
                 Debug.LogError($"[Social] ส่งคำขอไม่สำเร็จ: {error}");
+                if (itemView != null) itemView.ResetButtonState();   // ส่งไม่ถึง DB -> ให้กดใหม่ได้
             },
             onResult: (result) => {
+                Debug.Log($"[Social] ผลส่งคำขอถึง {targetUserId}: {result}");
+                // self = DB เห็นว่าเราส่งหาตัวเอง แปลว่า id ผู้เล่นในเครื่องผิด ไม่มีคำขอถูกบันทึก
+                if (result == "self")
+                {
+                    Debug.LogError($"[Social] 🔴 id ผู้เล่นตอนนี้คือ {SupabaseManager.Instance.currentUserId} ซึ่งตรงกับคนที่จะแอด -> คำขอไม่ถูกบันทึก");
+                    if (itemView != null) itemView.ResetButtonState();
+                }
                 // 🤝 อีกฝ่ายขอเรามาก่อนแล้ว -> DB ตอบรับให้อัตโนมัติ เลยรีเฟรชหน้ารายชื่อเพื่อน
                 if (result == "accepted")
                 {
@@ -165,7 +189,8 @@ public class AddFriendViewController : MonoBehaviour
         ));
     }
 
-    private void PopulateList(List<UserData> userList)
+    // sentUserIds = คนที่เราส่งคำขอค้างไว้แล้ว (ไม่ส่งมา = ไม่มี)
+    private void PopulateList(List<UserData> userList, HashSet<string> sentUserIds = null)
     {
         foreach (var user in userList)
         {
@@ -173,12 +198,14 @@ public class AddFriendViewController : MonoBehaviour
             FriendItemView itemView = itemObj.GetComponent<FriendItemView>();
 
             Sprite avatarSprite = GetAvatarSprite(user.buddyId);
-            itemView.SetData(user.userId, user.username, user.level, avatarSprite, OnSendFriendRequestClicked);
+            // ส่ง itemView ไปด้วย เพื่อคืนปุ่มได้ถ้าส่งคำขอไม่สำเร็จ
+            itemView.SetData(user.userId, user.username, user.level, avatarSprite, id => OnSendFriendRequestClicked(id, itemView));
+
+            if (sentUserIds != null && sentUserIds.Contains(user.userId)) itemView.SetRequestSentState();   // ส่งไปแล้ว -> ปุ่มเทา
         }
     }
 
     // 🤝 รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น (16 แบบตาม MBTI) ดูส่วน Buddy Avatar ใน SupabaseManager
-    //    (เดิมโหลดจาก Resources/Sprites/Buddies ซึ่งไม่มีโฟลเดอร์นี้ รูปเลยไม่เคยขึ้น)
     private Sprite GetAvatarSprite(string buddyId)
     {
         return SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);

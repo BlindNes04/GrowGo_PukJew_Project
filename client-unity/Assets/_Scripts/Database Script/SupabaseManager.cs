@@ -69,16 +69,19 @@ public class SupabaseManager : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null)
+        // ==================== ให้มี SupabaseManager ตัวเดียวตลอดเกม (Singleton) ====================
+        // เช็กตัวแปร instance ตรงๆ (ไม่ใช้ property Instance เพราะ property จะไปหาเจอตัวเองแล้วคืนค่าไม่ null เสมอ)
+        // ตัวแรกอยู่ข้ามฉาก (DontDestroyOnLoad) ส่วนตัวที่ติดมากับฉากอื่นจะถูกลบ -> ข้อมูลที่โหลดไว้ไม่หายตอนเปลี่ยนฉาก
+        if (instance == null || instance == this)
         {
             instance = this;
             DontDestroyOnLoad(gameObject);
 
             LoadSavedSession();
         }
-        else if (Instance != this)
+        else
         {
-            Destroy(gameObject);
+            Destroy(gameObject);   // มีตัวหลักจากฉากก่อนอยู่แล้ว -> ลบตัวที่ติดมากับฉากนี้
         }
     }
 
@@ -89,7 +92,146 @@ public class SupabaseManager : MonoBehaviour
         {
             currentUserId = savedId;
             Debug.Log($"[SupabaseManager] 🟢 Auto-loaded Session ID: {currentUserId}");
+            PreloadAll();   // 📦 มีผู้เล่นค้างไว้ในเครื่อง -> โหลดข้อมูลเก็บไว้ตั้งแต่เปิดเกม
         }
+    }
+
+    // ==================== 📦 Cache ข้อมูลผู้เล่น ====================
+    // SupabaseManager อยู่ตลอดเกม (DontDestroyOnLoad) จึงจำผลลัพธ์จาก DB ล่าสุดไว้ (เก็บเป็น JSON ดิบ)
+    // ทุกหน้าเลยแสดงค่าจริงได้ทันทีตอนเปิดฉาก ไม่ต้องเห็นค่า default ใน Inspector ก่อน DB ตอบ
+    //   1) PreloadAll() โหลดทุกอย่างครั้งเดียวตอนเปิดเกม / หลังล็อกอิน / หลังสมัคร
+    //   2) หน้าต่างๆ วาดจาก cache ทันทีก่อน แล้วค่อยดึง DB ใหม่เงียบๆ (ถ้าได้ค่าใหม่ก็อัปเดตจอ + cache)
+    //   3) ตอนเกมเขียน DB (รดน้ำ/ใส่ปุ๋ย/ผสมปุ๋ย/ซื้อของ) จะแก้ cache ตามไปด้วย ฉากถัดไปเลยได้ค่าที่ถูกเลย
+    // ตารางที่เกี่ยว: inventory(+item), player_plant, plant_species, evolution_stage, evolution_rule, user
+    [HideInInspector] public string cachedInventoryJson = null;     // ผลของ GetUserInventory ล่าสุด
+    [HideInInspector] public string cachedPlayerPlantJson = null;   // ทุกต้นของผู้เล่นจาก player_plant
+    [HideInInspector] public string cachedSpeciesJson = null;       // plant_species (ข้อมูลกลาง ไม่ขึ้นกับผู้เล่น)
+    [HideInInspector] public string cachedStagesJson = null;        // evolution_stage
+    [HideInInspector] public string cachedRulesJson = null;         // evolution_rule
+    private string cacheOwnerUserId = "";                           // cache นี้เป็นของผู้เล่นคนไหน
+    private bool isPreloading = false;
+    private bool isRefreshingInventoryCache = false;
+    private bool refreshInventoryAgain = false;
+
+    /// <summary> โหลดข้อมูลผู้เล่นทั้งหมดมาเก็บไว้ (เรียกซ้ำได้ ถ้ากำลังโหลดอยู่จะไม่ยิงซ้ำ) </summary>
+    public void PreloadAll()
+    {
+        if (isPreloading || string.IsNullOrEmpty(currentUserId)) return;
+        StartCoroutine(PreloadAllRoutine());
+    }
+
+    private IEnumerator PreloadAllRoutine()
+    {
+        isPreloading = true;
+        CheckCacheOwner();
+        Debug.Log($"[Cache] 📦 เริ่ม Preload ข้อมูลของ {currentUserId}");
+
+        LoadPlayerStats();                                              // ตาราง user (เลเวล/แต้ม/ชื่อ/บัดดี้)
+        yield return StartCoroutine(GetPlayerPlantData(null, null));   // player_plant (เก็บลง cache ในฟังก์ชันเอง)
+        if (string.IsNullOrEmpty(cachedStagesJson))                    // ข้อมูลกลาง โหลดครั้งเดียวพอ
+            yield return StartCoroutine(GetPlantMasterData(null, null, null, null));
+        yield return StartCoroutine(GetUserInventory(null, null));     // inventory
+
+        BuffManager.Instance.RefreshFromDatabase();   // 🐾 โหลดสกิลบัดดี้ของผู้เล่นคนนี้ ให้ใช้ได้ทุกฉาก
+
+        isPreloading = false;
+        Debug.Log("[Cache] 📦 Preload เสร็จแล้ว");
+    }
+
+    /// <summary> ล้าง cache ของผู้เล่น (ตอนออกจากระบบ / ลบบัญชี / เปลี่ยนบัญชี) ข้อมูลกลางของพืชไม่ต้องล้าง </summary>
+    public void ClearPlayerCache()
+    {
+        cachedInventoryJson = null;
+        cachedPlayerPlantJson = null;
+        cacheOwnerUserId = "";
+
+        playerStatsLoaded = false;
+        playerUsername = ""; playerTag = ""; playerClusterId = ""; playerEmail = ""; playerBuddyId = null;
+        playerLevel = 1; playerTotalExp = 0; playerFlowerPoints = 0; playerGreenPoints = 0;
+        pendingExp = 0; pendingFlower = 0;
+        BuffManager.Instance.SetActiveBuddySkill("NONE", "0");   // 🐾 ล้างสกิลบัดดี้ของคนเก่า
+        Debug.Log("[Cache] 🧹 ล้าง cache ผู้เล่นแล้ว");
+    }
+
+    // ถ้า user id เปลี่ยน (ล็อกอินบัญชีอื่น) ให้ทิ้ง cache ของคนเก่า กันโชว์ข้อมูลผิดคน
+    private void CheckCacheOwner()
+    {
+        if (cacheOwnerUserId != currentUserId)
+        {
+            if (!string.IsNullOrEmpty(cacheOwnerUserId)) ClearPlayerCache();
+            cacheOwnerUserId = currentUserId;
+        }
+    }
+
+    // ---------- ฝั่งหน้าจอเรียกอ่าน cache (ได้ null = ยังไม่มี ให้รอโหลดจาก DB) ----------
+    public string GetCachedInventory() { CheckCacheOwner(); return cachedInventoryJson; }
+    public string GetCachedPlayerPlants() { CheckCacheOwner(); return cachedPlayerPlantJson; }
+    public string GetCachedBuddyId() { CheckCacheOwner(); return playerBuddyId; }
+
+    /// <summary> หาข้อมูลต้นเดียวจาก cache (เช่น หัวใจในร้านค้า) </summary>
+    public SupabasePlayerPlant GetCachedPlant(string plantId)
+    {
+        string json = GetCachedPlayerPlants();
+        if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(plantId)) return null;
+        SupabasePlayerPlantList list = JsonUtility.FromJson<SupabasePlayerPlantList>("{\"items\":" + json + "}");
+        if (list == null || list.items == null) return null;
+        return list.items.Find(p => p.player_plant_id != null && p.player_plant_id.Trim() == plantId.Trim());
+    }
+
+    // ---------- แก้ cache ตอนเกมเขียน DB ----------
+    // อัปเดตแถวต้นไม้ใน cache ด้วยค่าชุดเดียวกับที่ส่งไป DB (ใช้ JSON ตัวเดียวกับ PATCH)
+    private void PatchPlantCache(string plantId, string patchJson)
+    {
+        if (string.IsNullOrEmpty(cachedPlayerPlantJson)) return;
+        try
+        {
+            var rows = Newtonsoft.Json.Linq.JArray.Parse(cachedPlayerPlantJson);
+            var patch = Newtonsoft.Json.Linq.JObject.Parse(patchJson);
+            foreach (var row in rows)
+            {
+                // MergeNullValueHandling.Merge = ค่า null ก็เขียนทับด้วย (เช่น หายป่วยแล้ว sick_until กลับเป็น null)
+                if ((string)row["player_plant_id"] == plantId)
+                    ((Newtonsoft.Json.Linq.JObject)row).Merge(patch, new Newtonsoft.Json.Linq.JsonMergeSettings { MergeNullValueHandling = Newtonsoft.Json.Linq.MergeNullValueHandling.Merge });
+            }
+            cachedPlayerPlantJson = rows.ToString(Formatting.None);
+        }
+        catch (Exception e) { Debug.LogWarning($"[Cache] แก้ cache ต้นไม้ไม่ได้: {e.Message}"); }
+    }
+
+    // แก้จำนวนไอเทมใน cache (จำนวน <= 0 = เอาออก)
+    private void PatchInventoryCache(string itemId, int newQuantity)
+    {
+        if (string.IsNullOrEmpty(cachedInventoryJson)) return;
+        try
+        {
+            var rows = Newtonsoft.Json.Linq.JArray.Parse(cachedInventoryJson);
+            for (int i = rows.Count - 1; i >= 0; i--)
+            {
+                if ((string)rows[i]["item_id"] != itemId) continue;
+                if (newQuantity <= 0) rows.RemoveAt(i);
+                else rows[i]["quantity"] = newQuantity;
+            }
+            cachedInventoryJson = rows.ToString(Formatting.None);
+        }
+        catch (Exception e) { Debug.LogWarning($"[Cache] แก้ cache กระเป๋าไม่ได้: {e.Message}"); }
+    }
+
+    /// <summary> ดึงกระเป๋าใหม่เงียบๆ เก็บลง cache (ใช้หลังได้ของใหม่ที่ไม่รู้รายละเอียด เช่น ซื้อของ/รับรางวัล) </summary>
+    public void RefreshInventoryCacheInBackground()
+    {
+        if (isRefreshingInventoryCache) { refreshInventoryAgain = true; return; }   // ยิงติดกันหลายครั้ง -> ดึงรอบเดียวตอนท้าย
+        StartCoroutine(RefreshInventoryCacheRoutine());
+    }
+
+    private IEnumerator RefreshInventoryCacheRoutine()
+    {
+        isRefreshingInventoryCache = true;
+        do
+        {
+            refreshInventoryAgain = false;
+            yield return StartCoroutine(GetUserInventory(null, null));
+        } while (refreshInventoryAgain);
+        isRefreshingInventoryCache = false;
     }
 
     // ==================== GLOBAL HELPER ====================
@@ -128,7 +270,8 @@ public class SupabaseManager : MonoBehaviour
 
     public IEnumerator GetUserInventory(Action<string> onSuccess, Action<string> onError)
     {
-        string endpoint = $"{supabaseUrl}/rest/v1/inventory?select=user_id,item_id,quantity,item:item_id(item_id,item_name,item_type,rarity_tier,description,metadata)&user_id=eq.{GetActiveUserId()}";
+        string requestUserId = GetActiveUserId();
+        string endpoint = $"{supabaseUrl}/rest/v1/inventory?select=user_id,item_id,quantity,item:item_id(item_id,item_name,item_type,rarity_tier,description,metadata)&user_id=eq.{requestUserId}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
@@ -139,6 +282,9 @@ public class SupabaseManager : MonoBehaviour
             {
                 string jsonResult = request.downloadHandler.text;
                 Debug.Log($"[Supabase Success] Fetch Inventory: {jsonResult}");
+                // 📦 จำไว้ใน cache (เฉพาะถ้ายังเป็นผู้เล่นคนเดิมตอนที่ DB ตอบกลับ)
+                CheckCacheOwner();
+                if (requestUserId == currentUserId) cachedInventoryJson = jsonResult;
                 onSuccess?.Invoke(jsonResult);
             }
             else
@@ -174,6 +320,7 @@ public class SupabaseManager : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"[Supabase Success] Updated item {itemId} quantity to {newQuantity}.");
+                PatchInventoryCache(itemId, newQuantity);   // 📦 แก้จำนวนใน cache ตาม
                 onSuccess?.Invoke();
             }
             else
@@ -202,6 +349,7 @@ public class SupabaseManager : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"[Supabase Success] 🟢 Deleted item '{itemId}' from inventory DB.");
+                PatchInventoryCache(itemId, 0);   // 📦 เอาออกจาก cache ด้วย
                 onSuccess?.Invoke();
             }
             else
@@ -276,6 +424,7 @@ public class SupabaseManager : MonoBehaviour
                     if (postRequest.result == UnityWebRequest.Result.Success)
                     {
                         Debug.Log($"[Supabase Success] 🟢 Inserted new item {itemId} into DB with quantity {addQuantity}.");
+                        RefreshInventoryCacheInBackground();   // 📦 ของใหม่ยังไม่มีชื่อ/รูปใน cache -> ดึงกระเป๋าใหม่เงียบๆ
                         onSuccess?.Invoke();
                     }
                     else
@@ -338,8 +487,8 @@ public class SupabaseManager : MonoBehaviour
                 $"\"plant_nickname\":\"{nickname}\"," +
                 $"\"current_exp\":0," +
                 $"\"relationship_score\":0," +
-                // 🔧 แก้บั๊ก: เดิมใส่เวลาปัจจุบัน ทำให้ต้นที่เพิ่งปลูกเหมือนถูกรดน้ำไปแล้ว (ความชื้นเต็ม + ติดคูลดาวน์)
-                //    ใส่ null = ยังไม่เคยรดน้ำ ผู้เล่นต้องกดรดน้ำเองครั้งแรก
+                // last_watered_at = null = ต้นใหม่ยังไม่เคยรดน้ำ ผู้เล่นต้องกดรดน้ำเองครั้งแรก
+                // (ถ้าใส่เวลาปัจจุบัน ต้นที่เพิ่งปลูกจะเหมือนถูกรดไปแล้ว ความชื้นเต็มและติดคูลดาวน์)
                 $"\"last_watered_at\":null," +
                 $"\"is_fully_grown\":false," +
                 $"\"is_sick\":false," +
@@ -361,6 +510,7 @@ public class SupabaseManager : MonoBehaviour
                 if (postRequest.result == UnityWebRequest.Result.Success)
                 {
                     Debug.Log($"[Supabase Success] 🟢 Created new plant: {nickname} (ID: {newPlantId}, Stage: {initialStageId})");
+                    StartCoroutine(GetPlayerPlantData(null, null));   // 📦 มีต้นใหม่ -> ดึง player_plant ใหม่เก็บลง cache
                     onSuccess?.Invoke();
                 }
                 else
@@ -374,7 +524,8 @@ public class SupabaseManager : MonoBehaviour
 
     public IEnumerator GetPlayerPlantData(Action<string> onSuccess, Action<string> onError)
     {
-        string endpoint = $"{supabaseUrl}/rest/v1/player_plant?user_id=eq.{GetActiveUserId()}";
+        string requestUserId = GetActiveUserId();
+        string endpoint = $"{supabaseUrl}/rest/v1/player_plant?user_id=eq.{requestUserId}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
@@ -385,6 +536,9 @@ public class SupabaseManager : MonoBehaviour
             {
                 string jsonResult = request.downloadHandler.text;
                 Debug.Log($"[Supabase Success] Fetch Player Plant: {jsonResult}");
+                // 📦 จำไว้ใน cache (เฉพาะถ้ายังเป็นผู้เล่นคนเดิม)
+                CheckCacheOwner();
+                if (requestUserId == currentUserId) cachedPlayerPlantJson = jsonResult;
                 onSuccess?.Invoke(jsonResult);
             }
             else
@@ -418,6 +572,10 @@ public class SupabaseManager : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"[Supabase Success] Fetch {tableName}: {request.downloadHandler.text}");
+                // 📦 จำข้อมูลกลางของพืชไว้ (PlantStatus.Awake ใช้คิดหลอดสารอาหาร/ชื่อร่างได้ทันที)
+                if (tableName == "plant_species") cachedSpeciesJson = request.downloadHandler.text;
+                else if (tableName == "evolution_stage") cachedStagesJson = request.downloadHandler.text;
+                else if (tableName == "evolution_rule") cachedRulesJson = request.downloadHandler.text;
                 onSuccess?.Invoke(request.downloadHandler.text);
             }
             else
@@ -443,6 +601,11 @@ public class SupabaseManager : MonoBehaviour
         string lastWateredStr = string.IsNullOrEmpty(plant.lastWateredAt) ? "null" : $"\"{plant.lastWateredAt}\"";
         string sickUntilStr = string.IsNullOrEmpty(plant.sickUntil) ? "null" : $"\"{plant.sickUntil}\"";
         string plantedAtStr = string.IsNullOrEmpty(plant.plantedAt) ? "null" : $"\"{plant.plantedAt}\"";
+        // ⚖️ คอลัมน์ระบบสมดุล (น้ำ/โควตารายวัน) - ค่าว่างส่งเป็น null
+        string poolStartStr = string.IsNullOrEmpty(plant.waterPoolStartedAt) ? "null" : $"\"{plant.waterPoolStartedAt}\"";
+        string dailyDateStr = string.IsNullOrEmpty(plant.dailyCountDate) ? "null" : $"\"{plant.dailyCountDate}\"";
+        // 🥀 ป่วยจากขาดน้ำ: เวลาหักหัวใจครั้งล่าสุด (ว่าง = null)
+        string dryPenaltyStr = string.IsNullOrEmpty(plant.dryPenaltyAt) ? "null" : $"\"{plant.dryPenaltyAt}\"";
 
         string jsonPayload = "{" +
             $"\"player_plant_id\":\"{cleanPlantId}\"," +
@@ -456,8 +619,18 @@ public class SupabaseManager : MonoBehaviour
             $"\"is_sick\":{plant.isSick.ToString().ToLower()}," +
             $"\"sick_until\":{sickUntilStr}," +
             $"\"immunity_shields\":{plant.immunityShields}," +
-            $"\"planted_at\":{plantedAtStr}" +
+            $"\"planted_at\":{plantedAtStr}," +
+            $"\"water_pool_total\":{plant.waterPoolTotal}," +
+            $"\"water_pool_absorbed\":{plant.waterPoolAbsorbed}," +
+            $"\"water_pool_started_at\":{poolStartStr}," +
+            $"\"fert_used_today\":{plant.fertUsedToday}," +
+            $"\"heart_gained_today\":{plant.heartGainedToday}," +
+            $"\"daily_count_date\":{dailyDateStr}," +
+            $"\"dry_penalty_at\":{dryPenaltyStr}" +
         "}";
+
+        // 📦 แก้ cache ก่อนส่ง (ถ้าเปลี่ยนฉากกลางทาง ฉากใหม่ก็ยังเห็นค่าล่าสุด ไม่เด้งกลับค่าเก่า)
+        PatchPlantCache(cleanPlantId, jsonPayload);
 
         using (UnityWebRequest request = new UnityWebRequest(endpoint, "PATCH"))
         {
@@ -485,7 +658,7 @@ public class SupabaseManager : MonoBehaviour
 
     public IEnumerator GetFriendships(Action<string> onSuccess, Action<string> onError)
     {
-        // 🤝 แก้ระบบเพื่อน: ดึงเฉพาะแถวที่เกี่ยวกับเรา (เดิมดึงทั้งตาราง)
+        // 🤝 ดึงเฉพาะแถว friendship ที่เราเป็นผู้ส่งหรือผู้รับ (ไม่ดึงทั้งตาราง)
         string me = GetActiveUserId();
         string endpoint = $"{supabaseUrl}/rest/v1/friendship?select=*&or=(requester_id.eq.{me},addressee_id.eq.{me})";
 
@@ -548,7 +721,7 @@ public class SupabaseManager : MonoBehaviour
         string cleanQuery = query.Trim();
         if (string.IsNullOrEmpty(cleanQuery)) yield break;
 
-        // 🤝 แก้ระบบเพื่อน: ค้นหาบางส่วนได้ ไม่ต้องพิมพ์ตรงเป๊ะ (ilike = ไม่สนตัวพิมพ์เล็ก/ใหญ่)
+        // 🤝 ค้นหาบางส่วนได้ ไม่ต้องพิมพ์ตรงเป๊ะ (ilike = ไม่สนตัวพิมพ์เล็ก/ใหญ่)
         //    เช่นพิมพ์ "man" เจอ "Mango", พิมพ์ "0001" หรือ "#0001" เจอแท็ก #00001
         //    ตัดตัวอักษรที่ใช้แยกเงื่อนไขใน URL ออก ( , ( ) " ) กันคำค้นทำ URL พัง
         string keyword = cleanQuery.TrimStart('#').Replace(",", "").Replace("(", "").Replace(")", "").Replace("\"", "");
@@ -580,7 +753,7 @@ public class SupabaseManager : MonoBehaviour
         }
     }
 
-    // 🤝 แก้ระบบเพื่อน: ส่งคำขอผ่าน RPC send_friend_request (ไฟล์ friend_request_fix.sql)
+    // 🤝 ส่งคำขอเป็นเพื่อนผ่าน RPC send_friend_request (DB เช็กคำขอซ้ำ และถ้าอีกฝ่ายขอเรามาก่อน = รับเป็นเพื่อนทันที)
     //    DB เช็คให้หมด กันคำขอซ้ำ/ซ้อนสองทาง และถ้าอีกฝ่ายขอเรามาก่อนแล้ว จะเป็นเพื่อนกันทันที
     //    onResult ได้ค่า: sent / accepted / already_sent / already_friends / self
     private class FriendRequestResult { public string result; }
@@ -878,6 +1051,7 @@ public class SupabaseManager : MonoBehaviour
                 if (result != null && result.Count > 0 && result[0].ContainsKey("buddy_id"))
                 {
                     string buddyId = result[0]["buddy_id"];
+                    playerBuddyId = buddyId ?? "";   // 📦 จำไว้ใน cache
                     onResult?.Invoke(buddyId);
                 }
                 else
@@ -911,6 +1085,8 @@ public class SupabaseManager : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"[Supabase Success] 🟢 Updated user buddy_id to: {buddyId}");
+                playerBuddyId = buddyId;   // 📦 แก้ cache ตาม
+                BuffManager.Instance.RefreshFromDatabase();   // 🐾 เปลี่ยนบัดดี้ -> เปลี่ยนสกิลตาม
                 onSuccess?.Invoke();
             }
             else
@@ -1256,7 +1432,7 @@ public class SupabaseManager : MonoBehaviour
 
     // ==================== Player Level / Points (เลเวลผู้เล่น + แต้ม) ====================
     // ตาราง user : level, total_exp, flower_points, green_points, cluster_id
-    // กติกา (ตกลงกับ Pakin 2026-11-09):
+    // กติกา:
     //   - เลเวลคิดจาก total_exp ทั้งหมด ไม่มีเลเวลตัน
     //   - จากเลเวล L ไปเลเวล L+1 ต้องใช้ EXP = L x expPerLevelStep (ค่าเริ่ม 100)
     //     เช่น Lv1->2 ใช้ 100, Lv2->3 ใช้ 200, Lv3->4 ใช้ 300 ...
@@ -1279,6 +1455,8 @@ public class SupabaseManager : MonoBehaviour
     public long playerTotalExp = 0;
     public int playerFlowerPoints = 0;
     public int playerGreenPoints = 0;
+    public string playerEmail = "";        // 📦 เก็บไว้ให้หน้าตั้งค่าโชว์ได้ทันที
+    public string playerBuddyId = null;    // 📦 เก็บไว้ให้บัดดี้ในสวนโชว์ได้ทันที (null = ยังไม่รู้)
 
     public bool playerStatsLoaded = false;
     private bool playerStatsLoading = false;
@@ -1295,6 +1473,8 @@ public class SupabaseManager : MonoBehaviour
         public string username;
         public string user_tag;
         public string cluster_id;
+        public string email;
+        public string buddy_id;
         // ค่าตัวเลขอาจเป็น null ใน DB เลยใช้ int?/long? และเขียนเป็น property เพื่อไม่ให้ Unity เตือน (UAC1001)
         public int? level { get; set; }
         public long? total_exp { get; set; }
@@ -1336,14 +1516,22 @@ public class SupabaseManager : MonoBehaviour
         if (string.IsNullOrEmpty(userId)) yield break;
         playerStatsLoading = true;
 
-        string endpoint = $"{supabaseUrl}/rest/v1/user?select=username,user_tag,cluster_id,level,total_exp,flower_points,green_points&user_id=eq.{userId}";
+        string endpoint = $"{supabaseUrl}/rest/v1/user?select=username,user_tag,cluster_id,email,buddy_id,level,total_exp,flower_points,green_points&user_id=eq.{userId}";
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint))
         {
             SetSupabaseHeaders(request);
             yield return request.SendWebRequest();
 
+            // 📦 ระหว่างรอ DB ผู้เล่นเปลี่ยนบัญชีไปแล้ว -> ทิ้งผลนี้ (กันเอาแต้มคนเก่ามาใส่คนใหม่)
+            if (userId != currentUserId)
+            {
+                playerStatsLoading = false;
+                yield break;
+            }
+
             if (request.result == UnityWebRequest.Result.Success)
             {
+                CheckCacheOwner();
                 List<UserStatsRow> rows = JsonConvert.DeserializeObject<List<UserStatsRow>>(request.downloadHandler.text);
                 if (rows != null && rows.Count > 0)
                 {
@@ -1351,6 +1539,8 @@ public class SupabaseManager : MonoBehaviour
                     playerUsername = row.username ?? "";
                     playerTag = row.user_tag ?? "";
                     playerClusterId = row.cluster_id ?? "";
+                    playerEmail = row.email ?? "";
+                    playerBuddyId = row.buddy_id ?? "";
                     playerTotalExp = row.total_exp ?? 0;
                     playerFlowerPoints = row.flower_points ?? 0;
                     playerGreenPoints = row.green_points ?? 0;
@@ -1437,7 +1627,7 @@ public class SupabaseManager : MonoBehaviour
     }
 
     // ---------- EXP จากกิจกรรมที่บันทึกใน behavior_log ----------
-    // เรียกจาก LogBehavior อัตโนมัติ เลยไม่ต้องไปแก้โค้ดมินิเกม/เกาะทีละไฟล์
+    // เรียกจาก LogBehavior อัตโนมัติ (มินิเกม/เกาะ/ผสมปุ๋ย ไม่ต้องให้ EXP เอง)
     private void GrantExpFromActivity(string activityType)
     {
         int exp = 0;
@@ -1516,7 +1706,7 @@ public class SupabaseManager : MonoBehaviour
                 PlayerPrefs.DeleteKey("SavedUserId");
                 PlayerPrefs.Save();
                 currentUserId = "";
-                playerStatsLoaded = false;
+                ClearPlayerCache();   // 📦 ล้าง cache ของบัญชีที่ลบไป
 
                 onSuccess?.Invoke();
             }
@@ -1530,9 +1720,9 @@ public class SupabaseManager : MonoBehaviour
 
     // ==================== Behavior Log (เก็บพฤติกรรมผู้เล่น) ====================
     // ใช้ตาราง behavior_log : log_id, user_id, activity_type, timestamp, meta_data
-    // activity_type ที่ใช้ (ตรงกับข้อมูลเดิมใน DB):
+    // activity_type ที่บันทึกจากเกม (ชื่อเดียวกับข้อมูลที่ใช้ทำ K-means):
     //   play_block_blast, play_fruit_merge, craft_fertilizer, explore_island, collect_species
-    //   (water_friend_tree, submit_tree_cert ยังไม่มีระบบในเกม)
+    //   (water_friend_tree บันทึกใน RPC water_friend_plant, submit_tree_cert บันทึกใน Edge Function verify-certificate)
     // วิธีเรียก: SupabaseManager.Instance.LogBehavior("play_block_blast", "score", 1200, "reward_item", "ITEM_ING_EGG");
     //   ค่าหลังชื่อกิจกรรมใส่เป็นคู่ "ชื่อ", ค่า จะถูกเก็บลง meta_data (jsonb)
 
@@ -1669,6 +1859,7 @@ public class SupabaseManager : MonoBehaviour
             }
 
             Debug.Log($"[DailyReward] 📩 {list[0].message} ({list[0].reward_item_id})");
+            if (list[0].claimed) RefreshInventoryCacheInBackground();   // 📦 ได้ของใหม่ -> อัปเดต cache กระเป๋า
             onResult?.Invoke(list[0]);
         }
     }
@@ -1731,6 +1922,8 @@ public class SupabaseManager : MonoBehaviour
             }
 
             Debug.Log($"[FriendVisit] 💧 {list[0].message} (first today: {list[0].is_first_today})");
+            // 📦 DB ให้แต้มดอกไม้ฝั่งเซิร์ฟเวอร์ -> โหลดแต้มใหม่ ไม่งั้นค่าในเครื่องจะเก่า (และเซฟทับแต้มที่ได้)
+            if (list[0].success && list[0].is_first_today) LoadPlayerStats();
             onResult?.Invoke(list[0]);
         }
     }
@@ -1876,6 +2069,7 @@ public class SupabaseManager : MonoBehaviour
             playerFlowerPoints = result.new_flower_points;
             playerGreenPoints = result.new_green_points;
             OnPlayerStatsChanged?.Invoke();
+            if (result.success) RefreshInventoryCacheInBackground();   // 📦 DB ใส่ของให้แล้ว -> ดึงกระเป๋าใหม่เก็บ cache
 
             Debug.Log($"[Store] 🛒 {result.message} ({shopItemId} -> {result.got_item_id})");
             onResult?.Invoke(result);
@@ -1884,7 +2078,7 @@ public class SupabaseManager : MonoBehaviour
 
     // ==================== Certificate OCR (แลก Green Point ด้วยวุฒิบัตร) ====================
     // ส่งรูปวุฒิบัตรไปที่ Edge Function "verify-certificate" บน Supabase
-    // ฝั่งเซิร์ฟเวอร์ใช้ Typhoon OCR อ่านข้อความ แล้วเช็คตามโค้ดเพื่อน (ocr_pukjiw.py) + กันใช้ใบเดิมซ้ำ
+    // ฝั่งเซิร์ฟเวอร์ใช้ Typhoon OCR อ่านข้อความ แล้วเช็คเงื่อนไขแบบเดียวกับ ocr_pukjiw.py (branch ocr) + กันใช้ใบเดิมซ้ำ
     // ผ่าน = +100 green_points, บันทึก certificate_submission + behavior_log (submit_tree_cert) ให้เลย
     // คีย์ Typhoon เก็บใน Supabase Secrets ไม่ได้อยู่ในเกม
     [Serializable]

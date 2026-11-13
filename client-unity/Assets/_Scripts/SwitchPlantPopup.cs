@@ -90,6 +90,18 @@ public class SwitchPlantPopup : MonoBehaviour
 
     private void OnEnable()
     {
+        // ==================== คืนค่าให้กดได้ทุกครั้งที่เปิด ====================
+        // ปุ่ม X ผูกทั้ง UniversalPopup.Close (ปิดการกดแล้วค่อยๆ เฟด) และ ClosePopup (SetActive(false) ทันที)
+        // เฟดเลยหยุดกลางทาง CanvasGroup ค้างสถานะ "กดไม่ได้"
+        // จึงตั้ง CanvasGroup กลับเป็นโชว์ + กดได้ ทุกครั้งที่ป๊อปอัปถูกเปิด
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
         RefreshPlantGrid();
     }
 
@@ -118,26 +130,43 @@ public class SwitchPlantPopup : MonoBehaviour
 
         if (SupabaseManager.Instance != null)
         {
+            // 📦 วาดการ์ดจาก cache ก่อนทันที แล้วค่อยดึง DB ใหม่ ถ้าข้อมูลเหมือนเดิมก็ไม่ต้องวาดซ้ำ
+            string cachedJson = SupabaseManager.Instance.GetCachedPlayerPlants();
+            if (!string.IsNullOrEmpty(cachedJson)) BuildPlantCards(cachedJson);
+
             StartCoroutine(SupabaseManager.Instance.GetPlayerPlantData(
                 onSuccess: (json) =>
                 {
-                    string wrappedJson = "{\"items\":" + json + "}";
-                    SupabasePlayerPlantList list = JsonUtility.FromJson<SupabasePlayerPlantList>(wrappedJson);
-
-                    if (list != null && list.items != null)
-                    {
-                        foreach (var plantData in list.items)
-                        {
-                            CreatePlantCard(plantData);
-                        }
-                    }
-
-                    // 🔍 สร้างการ์ดครบแล้ว กรองตามคำค้น/ตัวกรองที่ตั้งไว้ (ในนี้สั่ง rebuild layout ให้แล้ว)
-                    ApplySearchAndFilter();
+                    if (json != cachedJson) BuildPlantCards(json);
                 },
                 onError: (err) => Debug.LogError($"[SwitchPlant] 🔴 ดึงรายการพืชไม่สำเร็จ: {err}")
             ));
         }
+    }
+
+    // สร้างการ์ดทุกต้นจาก JSON ของ player_plant (ใช้ได้ทั้งข้อมูลจาก cache และจาก DB)
+    private void BuildPlantCards(string json)
+    {
+        foreach (var card in spawnedCards)
+        {
+            if (card != null) Destroy(card);
+        }
+        spawnedCards.Clear();
+        cardEntries.Clear();
+
+        string wrappedJson = "{\"items\":" + json + "}";
+        SupabasePlayerPlantList list = JsonUtility.FromJson<SupabasePlayerPlantList>(wrappedJson);
+
+        if (list != null && list.items != null)
+        {
+            foreach (var plantData in list.items)
+            {
+                CreatePlantCard(plantData);
+            }
+        }
+
+        // 🔍 สร้างการ์ดครบแล้ว กรองตามคำค้น/ตัวกรองที่ตั้งไว้ (ในนี้สั่ง rebuild layout ให้แล้ว)
+        ApplySearchAndFilter();
     }
 
     private void CreatePlantCard(SupabasePlayerPlant plantData)
@@ -240,7 +269,8 @@ public class SwitchPlantPopup : MonoBehaviour
         {
             Debug.Log($"[SwitchPlant] 🔄 สลับไปเล่นพืช ID: {selectedPlayerPlantId}");
             plantStatus.playerPlantId = selectedPlayerPlantId.Trim();
-            plantStatus.StartCoroutine("LoadAllDataFromSupabaseRoutine");
+            plantStatus.LoadFromCache();   // 📦 สลับต้นจาก cache ทันที ไม่ต้องรอ DB
+            plantStatus.StartCoroutine("LoadAllDataFromSupabaseRoutine");   // แล้วโหลด DB ทับเงียบๆ
         }
 
         ClosePopup();

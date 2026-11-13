@@ -73,10 +73,14 @@ public class MainInventoryManager : MonoBehaviour
             return;
         }
 
+        // 📦 วาดกระเป๋าจาก cache ทันที แล้วค่อยดึง DB ใหม่ (ถ้าเหมือนเดิมไม่ต้องวาดซ้ำ)
+        string cachedJson = SupabaseManager.Instance.GetCachedInventory();
+        if (!string.IsNullOrEmpty(cachedJson)) ParseAndBuildInventoryUI(cachedJson);
+
         StartCoroutine(SupabaseManager.Instance.GetUserInventory(
             onSuccess: (json) =>
             {
-                ParseAndBuildInventoryUI(json);
+                if (json != cachedJson) ParseAndBuildInventoryUI(json);
             },
             onError: (err) =>
             {
@@ -184,6 +188,13 @@ public class MainInventoryManager : MonoBehaviour
         {
             itemDetailBox.SetActive(true);
 
+            // ==================== ซ่อน/โชว์ปุ่ม "เลือก" ตามประเภทไอเทม (เฉพาะกระเป๋าหลัก) ====================
+            // ปุ๋ยไปใช้ที่หน้าบำรุง (Nourish) / วัตถุดิบเอาไปผสมปุ๋ยที่หม้อต้ม -> กระเป๋าหลักไม่ต้องมีปุ่ม
+            // เมล็ด (ปลูก) / คูปองลดเวลารดน้ำ / ไอเทมพิเศษ เช่นยาย้อนร่าง -> มีปุ่มใช้
+            // หาปุ่มจากชื่อลูก "SelectBtn" ใน ItemDetailBox เลยไม่ต้องลากใส่ Inspector เพิ่ม
+            Transform selectBtn = itemDetailBox.transform.Find("SelectBtn");
+            if (selectBtn != null) selectBtn.gameObject.SetActive(CanUseFromMainBag(currentItem));
+
             // 📍 ให้ popup เด้งใต้ช่องที่เลือก
             if (itemIndex < instantiatedSlots.Count && instantiatedSlots[itemIndex] != null)
                 ItemSlotUI.PlacePopupNear(itemDetailBox.transform as RectTransform, instantiatedSlots[itemIndex].transform as RectTransform);
@@ -201,6 +212,13 @@ public class MainInventoryManager : MonoBehaviour
         }
     }
 
+    // ใช้ item_type จาก DB ตัดสิน (ไม่ใช้ตัวหน้า id เพราะยาย้อนร่างมี id ขึ้นต้น ITEM_ING_ แต่เป็น special item)
+    private bool CanUseFromMainBag(SupabaseInventoryItem invItem)
+    {
+        string type = invItem != null && invItem.item != null ? invItem.item.item_type : "";
+        return type == "seed" || type == "booster" || type == "special item";
+    }
+
     // 🟢 4. เมื่อกดปุ่ม "เลือก/ใช้" ไอเทม
     public void OnClickSelectButton()
     {
@@ -216,7 +234,8 @@ public class MainInventoryManager : MonoBehaviour
             UseSeedToPlant(itemId);
         }
         // 🟢 2. ถ้าเป็นปุ๋ย/ไอเทมลดเวลารดน้ำ/คูปอง -> เข้าสู่ระบบเช็กเงื่อนไขและใส่ปุ๋ย
-        else if (itemType == "fertilizer" || (!string.IsNullOrEmpty(itemId) && (itemId.StartsWith("ITEM_FERT_") || itemId.StartsWith("ITEM_COUP_"))))
+        // รวม booster (คูปอง) และ special item (ยาย้อนร่าง ITEM_ING_REVIVE_POTION) ด้วย
+        else if (itemType == "fertilizer" || itemType == "booster" || itemType == "special item" || (!string.IsNullOrEmpty(itemId) && (itemId.StartsWith("ITEM_FERT_") || itemId.StartsWith("ITEM_COUP_"))))
         {
             UseFertilizerOnPlant(selectedInvItem);
         }
@@ -245,6 +264,13 @@ public class MainInventoryManager : MonoBehaviour
         {
             string effectName = !string.IsNullOrEmpty(meta.effect_type) ? meta.effect_type : meta.effect;
 
+            // ❌ ยาย้อนร่าง ใช้ได้เฉพาะต้นที่โตเต็มที่ (ร่าง 4) ไม่งั้นไม่ตัดไอเทม
+            if (effectName == "transform_back" && !(plant.currentStageLevel >= 4 && plant.isFullyGrown))
+            {
+                ShowFloatingTextPopup(currentSelectedItem, "ใช้ได้เฉพาะต้นที่โตเต็มที่ (ร่าง 4) เท่านั้น");
+                return;
+            }
+
             // ❌ ถ้าเป็นไอเทมลดเวลารดน้ำ แต่พืชพร้อมรดน้ำอยู่แล้ว -> ไม่ยอมให้ใช้ และไม่ตัดไอเทม
             if (effectName == "reduce_watering_time" && plant.CanWater())
             {
@@ -252,6 +278,13 @@ public class MainInventoryManager : MonoBehaviour
                 ShowFloatingTextPopup(currentSelectedItem);
                 return;
             }
+        }
+
+        // 📅 โควตาปุ๋ยรายวัน: เช็กก่อนหักของ (ครบ 5 ครั้งแล้ว -> ไม่หักของ + บอกผู้เล่น)
+        if (!plant.CanUseItemNow(invItem, out string quotaMessage))
+        {
+            ShowFloatingTextPopup(currentSelectedItem, quotaMessage);
+            return;
         }
 
         string itemId = invItem.item.item_id;
@@ -343,7 +376,8 @@ public class MainInventoryManager : MonoBehaviour
         return "ต้นไม้ของฉัน";
     }
 
-    private void ShowFloatingTextPopup(int itemIndex)
+    // overrideText = ข้อความที่อยากโชว์แทนคำอธิบายไอเทม (เช่น แจ้งว่าใส่ปุ๋ยครบโควตาวันนี้แล้ว)
+    private void ShowFloatingTextPopup(int itemIndex, string overrideText = null)
     {
         if (floatingText == null || itemGrid == null) return;
         if (itemIndex >= itemGrid.childCount) return;
@@ -356,7 +390,8 @@ public class MainInventoryManager : MonoBehaviour
 
         SupabaseInventoryItem selectedItem = loadedInventory[itemIndex];
 
-        string textToShow = !string.IsNullOrEmpty(selectedItem.item.description)
+        string textToShow = !string.IsNullOrEmpty(overrideText) ? overrideText
+            : !string.IsNullOrEmpty(selectedItem.item.description)
             ? selectedItem.item.description
             : selectedItem.item.item_name;
 

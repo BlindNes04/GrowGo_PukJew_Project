@@ -111,10 +111,15 @@ public class BuddyDisplayManager : MonoBehaviour
             return;
         }
 
+        // 📦 โชว์บัดดี้จาก cache ก่อนทันที (ไม่ต้องเห็นบัดดี้ default ใน Inspector ก่อน)
+        string cachedBuddyId = SupabaseManager.Instance.GetCachedBuddyId();
+        if (!string.IsNullOrEmpty(cachedBuddyId)) UpdateBuddyVisual(cachedBuddyId);
+
         // ดึง buddy_id ของผู้เล่นจาก DB
         StartCoroutine(SupabaseManager.Instance.GetUserBuddyId(
             onResult: (buddyId) =>
             {
+                if (!string.IsNullOrEmpty(buddyId) && buddyId == cachedBuddyId) return;   // เหมือน cache -> ไม่ต้องทำซ้ำ
                 if (string.IsNullOrEmpty(buddyId))
                 {
                     Debug.LogWarning("[BuddyDisplayManager] ⚠️ ผู้เล่นยังไม่มี buddy_id -> ซ่อนตัวละคร Buddy");
@@ -160,7 +165,7 @@ public class BuddyDisplayManager : MonoBehaviour
                 plantStatus.EquipBuddyPassive(currentBuddyData.skillType, parsedSkillValue);
             }
 
-            // 3. ส่งต่อให้ BuffManager ดั้งเดิมด้วย (ถ้ายังใช้งานอยู่)
+            // 3. ส่งต่อให้ BuffManager (สกิลที่ใช้ข้ามฉาก เช่น ร้านค้า เกาะ เพื่อน)
             if (BuffManager.Instance != null)
             {
                 BuffManager.Instance.SetActiveBuddySkill(currentBuddyData.skillType, currentBuddyData.skillValue);
@@ -211,7 +216,15 @@ public class BuddyDisplayManager : MonoBehaviour
         ShowSpeechBubble();
     }
 
-    private void ShowSpeechBubble()
+    // 🦎 ให้บัดดี้ "พูด" ข้อความพิเศษในกล่องคำพูด (เช่น กิ้งก่านำโชคตอนต้นไม้ได้ร่างพิเศษ)
+    public void ShowBuddyMessage(string message)
+    {
+        if (currentBuddyData == null) return;
+        ShowSpeechBubble(message);
+    }
+
+    // customMessage = ข้อความแทนคำอธิบายสกิล (ไม่ส่ง = โชว์คำอธิบายสกิลแบบเดิม)
+    private void ShowSpeechBubble(string customMessage = null)
     {
         if (speechBubbleUI == null) return;
 
@@ -225,7 +238,7 @@ public class BuddyDisplayManager : MonoBehaviour
             bubbleMbtiText.color = GetMbtiColor(currentBuddyData.mbtiType);
         }
 
-        if (bubbleSkillDescText != null) bubbleSkillDescText.text = currentBuddyData.skillDescription;
+        if (bubbleSkillDescText != null) bubbleSkillDescText.text = !string.IsNullOrEmpty(customMessage) ? customMessage : currentBuddyData.skillDescription;
 
         speechBubbleUI.SetActive(true);
 

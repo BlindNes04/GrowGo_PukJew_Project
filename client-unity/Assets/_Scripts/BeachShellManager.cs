@@ -33,6 +33,9 @@ public class BeachShellManager : MonoBehaviour
     public float cooldownSeconds = 10f;
     public TextMeshProUGUI cooldownText;
 
+    [Header("🦉 นกฮูก: ไอเทมที่ dropRate ไม่เกินค่านี้ นับเป็นของแรร์")]
+    public float rareDropRateThreshold = 0.2f;   // ในฉาก: กุ้ง 0.18 (gold), เมล็ดมะพร้าว 0.07 = แรร์
+
     private Button activeShell;
     private Coroutine shakeCoroutine;
     private Quaternion activeShellOriginalRotation;
@@ -71,9 +74,9 @@ public class BeachShellManager : MonoBehaviour
             DateTime lastClaimTime = new DateTime(lastClaimTicks);
             TimeSpan timePassed = DateTime.UtcNow - lastClaimTime;
 
-            if (timePassed.TotalSeconds < cooldownSeconds)
+            if (timePassed.TotalSeconds < GetCooldownSeconds())
             {
-                float remainingTime = (float)(cooldownSeconds - timePassed.TotalSeconds);
+                float remainingTime = (float)(GetCooldownSeconds() - timePassed.TotalSeconds);
                 Debug.Log($"[BeachShellManager] ⏳ Game is in Cooldown! Remaining: {remainingTime:F1}s");
                 StartCoroutine(StartCooldownTimer(remainingTime));
                 return;
@@ -182,6 +185,26 @@ public class BeachShellManager : MonoBehaviour
         clickedShell.gameObject.SetActive(false);
     }
 
+    // ==================== 🐾 สกิลบัดดี้ตอนสำรวจเกาะ ====================
+    // 🐆 เสือดาว ISLAND_RESPAWN_SPEED: ของบนเกาะเกิดใหม่ไวขึ้น (ค่าในตาราง buddy = 0.2 -> รอ 900 วิ เหลือ 720 วิ)
+    private float GetCooldownSeconds()
+    {
+        BuffManager buff = BuffManager.Instance;
+        return buff.Has(SkillType.ISLAND_RESPAWN_SPEED) ? cooldownSeconds * (1f - buff.activeBuddySkillValue) : cooldownSeconds;
+    }
+
+    // 🦉 นกฮูก ISLAND_RARE_CHANCE: เพิ่มโอกาสเจอของแรร์ (ค่าในตาราง buddy = 0.1)
+    //    เอา 0.1 ไปแบ่งเพิ่มให้ของแรร์ทุกชิ้นเท่าๆ กัน -> โอกาสรวมของแรร์เพิ่มขึ้นประมาณ 10%
+    private float GetDropWeight(BeachItemData item)
+    {
+        BuffManager buff = BuffManager.Instance;
+        if (!buff.Has(SkillType.ISLAND_RARE_CHANCE) || item.dropRate > rareDropRateThreshold) return item.dropRate;
+
+        int rareCount = 0;
+        foreach (var i in beachItems) if (i.dropRate <= rareDropRateThreshold) rareCount++;
+        return item.dropRate + buff.activeBuddySkillValue / Mathf.Max(1, rareCount);
+    }
+
     // ฟังก์ชันสุ่ม Weighted Random
     private BeachItemData GetRandomItemByDropRate()
     {
@@ -190,7 +213,7 @@ public class BeachShellManager : MonoBehaviour
         // คำนวณผลรวมน้ำหนักทั้งหมด
         foreach (var item in beachItems)
         {
-            totalWeight += item.dropRate;
+            totalWeight += GetDropWeight(item);
         }
 
         if (totalWeight <= 0f) return beachItems[0];
@@ -202,7 +225,7 @@ public class BeachShellManager : MonoBehaviour
         // สุ่มเทียบช่วงโอกาส
         foreach (var item in beachItems)
         {
-            currentSum += item.dropRate;
+            currentSum += GetDropWeight(item);
             if (randomValue <= currentSum)
             {
                 return item;
@@ -218,7 +241,7 @@ public class BeachShellManager : MonoBehaviour
         PlayerPrefs.Save();
 
         Debug.Log("[BeachShellManager] 🟢 Reward claimed! Cooldown started.");
-        StartCoroutine(StartCooldownTimer(cooldownSeconds));
+        StartCoroutine(StartCooldownTimer(GetCooldownSeconds()));
     }
 
     private IEnumerator StartCooldownTimer(float duration)

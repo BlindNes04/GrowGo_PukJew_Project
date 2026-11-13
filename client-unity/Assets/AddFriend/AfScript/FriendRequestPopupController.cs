@@ -59,7 +59,7 @@ public class FriendRequestPopupController : MonoBehaviour
             yield break;
 
         // 2. ดึงตาราง user เพื่อนำข้อมูลชื่อ/เลเวล/รูป มาแสดง
-        // 🤝 ดึงเฉพาะ user ที่ส่งคำขอมา (เดิมดึงทั้งตาราง แล้วโดนตัดที่ 1000 แถว)
+        // 🤝 ดึงเฉพาะ user ที่ส่งคำขอมา (ไม่ดึงทั้งตาราง เพราะ Supabase ตอบได้สูงสุด 1000 แถว)
         yield return StartCoroutine(SupabaseManager.Instance.GetAllUsers(
             (json) => { allUsers = JsonConvert.DeserializeObject<List<UserData>>(json); },
             (error) => { Debug.LogError($"[Social] Fetch Users Error: {error}"); },
@@ -89,12 +89,27 @@ public class FriendRequestPopupController : MonoBehaviour
 
     private void OnRespondToRequest(string friendshipId, bool isAccepted)
     {
+        // ==================== กดปฏิเสธ = ลบคำขอทิ้ง (แทนการเก็บสถานะ rejected) ====================
+        // ลบแถวใน friendship ทิ้ง เหมือนไม่เคยขอกันมาก่อน อยากแอดใหม่ทีหลังก็ทำได้ปกติ
+        // (ถ้าเก็บเป็น rejected ไว้ ทั้งสองฝั่งจะไม่เห็นกันในรายชื่อแนะนำอีกเลย)
+        if (!isAccepted)
+        {
+            StartCoroutine(SupabaseManager.Instance.DeleteFriendship(friendshipId,
+                onSuccess: () => {
+                    Debug.Log($"[Social] ปฏิเสธคำขอ {friendshipId} (ลบแถวแล้ว)");
+                    FetchPendingRequests();   // รีเฟรชรายการคำขอในป๊อปอัป
+                },
+                onError: (error) => Debug.LogError($"[Social] ปฏิเสธคำขอไม่สำเร็จ: {error}")
+            ));
+            return;
+        }
+
         string newStatus = isAccepted ? "accepted" : "rejected";
         StartCoroutine(SupabaseManager.Instance.RespondToFriendRequest(friendshipId, newStatus,
             onSuccess: () => {
                 Debug.Log($"[Social] ตอบรับ/ปฏิเสธ คำขอ {friendshipId} เรียบร้อย!");
 
-                // 🤝 ตอบรับแล้วรีเฟรชหน้ารายชื่อเพื่อนทันที (เดิมต้องออกแล้วเข้าหน้าใหม่ถึงจะเห็น)
+                // 🤝 ตอบรับแล้วรีเฟรชหน้ารายชื่อเพื่อนทันที 
                 if (isAccepted)
                 {
                     MyFriendsViewController myFriends = FindAnyObjectByType<MyFriendsViewController>(FindObjectsInactive.Include);
@@ -108,7 +123,6 @@ public class FriendRequestPopupController : MonoBehaviour
     }
 
     // 🤝 รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น (16 แบบตาม MBTI) ดูส่วน Buddy Avatar ใน SupabaseManager
-    //    (เดิมโหลดจาก Resources/Sprites/Buddies ซึ่งไม่มีโฟลเดอร์นี้ รูปเลยไม่เคยขึ้น)
     private Sprite GetAvatarSprite(string buddyId)
     {
         return SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);

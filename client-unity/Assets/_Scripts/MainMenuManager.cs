@@ -52,6 +52,7 @@ public class MainMenuManager : MonoBehaviour
         {
             SupabaseManager.Instance.currentUserId = savedUserId;
             Debug.Log($"[MainMenuManager] 🟢 สานต่อ Session ผู้เล่นเดิม ID: {savedUserId}");
+            SupabaseManager.Instance.PreloadAll();   // 📦 โหลดข้อมูลผู้เล่นเก็บ cache ไว้ก่อนเข้าสวน (ถ้าโหลดอยู่แล้วจะไม่ยิงซ้ำ)
         }
 
         // ผูก Event ปุ่มกด
@@ -205,6 +206,7 @@ public class MainMenuManager : MonoBehaviour
                         SupabaseManager.Instance.currentUserId = userId;
                         PlayerPrefs.SetString("SavedUserId", userId);
                         PlayerPrefs.Save();
+                        SupabaseManager.Instance.PreloadAll();   // 📦 ล็อกอินสำเร็จ -> โหลดข้อมูลบัญชีนี้เก็บ cache (บัญชีเก่าถูกล้างอัตโนมัติ)
 
                         StartCoroutine(UpdateLastLoginTime(userId));
 
@@ -388,6 +390,7 @@ public class MainMenuManager : MonoBehaviour
                 SupabaseManager.Instance.currentUserId = fixedUserId;
                 PlayerPrefs.SetString("SavedUserId", fixedUserId);
                 PlayerPrefs.Save();
+                SupabaseManager.Instance.PreloadAll();   // 📦 สมัครสำเร็จ -> โหลดข้อมูลบัญชีใหม่เก็บ cache
 
                 ShowStatus(registerStatusText, $"สมัครสำเร็จ! แท็กของคุณคือ {newUserTag}", Color.green);
                 Debug.Log($"[Auth] 🟢 สมัครสมาชิกสำเร็จ! ID: {fixedUserId} | Tag: {newUserTag}");

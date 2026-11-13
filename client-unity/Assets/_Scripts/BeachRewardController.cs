@@ -233,6 +233,19 @@ public class BeachRewardController : MonoBehaviour
     }
 
     // Saves item to Supabase inventory and triggers cooldown on BeachShellManager
+    // ==================== 🐢 เต่า DOUBLE_DROP_CHANCE: โอกาสได้ของเป็น 2 ชิ้น ====================
+    // ค่าในตาราง buddy = 0.1 -> มีโอกาส 10% ที่ไอเทมที่ได้จะเป็น 2 ชิ้น
+    private int GetRewardQuantity()
+    {
+        BuffManager buff = BuffManager.Instance;
+        if (buff.Has(SkillType.DOUBLE_DROP_CHANCE) && UnityEngine.Random.value <= buff.activeBuddySkillValue)
+        {
+            Debug.Log("[Buddy] 🐢 เต่าช่วยหา! ได้ไอเทม 2 ชิ้น");
+            return 2;
+        }
+        return 1;
+    }
+
     private void OnBackToStartClicked()
     {
         if (SupabaseManager.Instance == null)
@@ -249,7 +262,7 @@ public class BeachRewardController : MonoBehaviour
 
             SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
                 currentRewardedItemId,
-                1,
+                GetRewardQuantity(),   // 🐢 เต่า: มีโอกาสได้ 2 ชิ้น
                 onSuccess: () =>
                 {
                     Debug.Log($"[BeachRewardController] 🟢 บันทึกไอเทม '{currentRewardedItemId}' ลง Supabase DB สำเร็จ!");

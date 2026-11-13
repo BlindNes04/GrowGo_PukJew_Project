@@ -6,8 +6,8 @@ using UnityEngine.UI;
 using TMPro;
 
 // ==================== FriendPlantSwitchPopup ====================
-// ก๊อปโครงมาจาก SwitchPlantPopup (หน้าหลัก) แล้วปรับให้ใช้กับหน้าเยี่ยมสวนเพื่อน
-// ต่างจากตัวเดิม 3 จุด (ชื่อตัวแปรใน Inspector เหมือนเดิมทุกตัว ยกเว้น plantStatus -> friendVisit):
+// โครงเดียวกับ SwitchPlantPopup (หน้าหลัก) แต่ใช้กับหน้าเยี่ยมสวนเพื่อน
+// ต่างจาก SwitchPlantPopup 3 จุด (ชื่อตัวแปรใน Inspector เหมือนกัน ยกเว้น plantStatus -> friendVisit):
 //   1) รายการต้นไม้มาจาก FriendVisitController.friendPlants (ต้นของเพื่อน) ไม่ได้ดึงต้นของเรา
 //   2) กดเลือกการ์ด = แค่เปลี่ยนต้นที่ "ดู" (FriendVisitController.ShowPlant) ไม่บันทึกอะไรลง DB
 //   3) ตัวกรอง "ยังไม่ได้รดน้ำ" คิดจากเวลาที่ใหม่กว่าระหว่างเจ้าของรด กับเพื่อนรด
@@ -96,6 +96,18 @@ public class FriendPlantSwitchPopup : MonoBehaviour
 
     private void OnEnable()
     {
+        // ==================== คืนค่าให้กดได้ทุกครั้งที่เปิด ====================
+        // ปุ่ม X ผูกทั้ง UniversalPopup.Close (ปิดการกดแล้วค่อยๆ เฟด) และ ClosePopup (SetActive(false) ทันที)
+        // เฟดเลยหยุดกลางทาง CanvasGroup ค้างสถานะ "กดไม่ได้"
+        // จึงตั้ง CanvasGroup กลับเป็นโชว์ + กดได้ ทุกครั้งที่ป๊อปอัปถูกเปิด
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
         if (friendVisit == null)
             friendVisit = FindAnyObjectByType<FriendVisitController>();
         RefreshPlantGrid();

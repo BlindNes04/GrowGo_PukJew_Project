@@ -31,6 +31,14 @@ public class MyFriendsViewController : MonoBehaviour
             searchInputField.onSubmit.AddListener((val) => OnSearchClicked());
 
         LoadBuddySprites();
+        // รายชื่อเพื่อนโหลดใน OnEnable แทน (OnEnable ทำงานก่อน Start อยู่แล้ว ไม่ต้องโหลดซ้ำตรงนี้)
+    }
+
+    // ==================== รีเฟรชรายชื่อเพื่อนทุกครั้งที่เปิดแท็บ ====================
+    // Unity เริ่ม Coroutine บนวัตถุที่ปิดอยู่ไม่ได้ จึงไม่โหลดตอนหน้านี้ปิดอยู่
+    // พอผู้เล่นเปิดแท็บ OnEnable จะโหลดรายชื่อล่าสุดจาก DB ให้เอง (อีกฝ่ายรับคำขอ/ลบเรา ก็เห็นทันที)
+    private void OnEnable()
+    {
         FetchMyFriends();
     }
 
@@ -39,6 +47,7 @@ public class MyFriendsViewController : MonoBehaviour
     // Initiates fetching sequence for accepted friendships
     public void FetchMyFriends()
     {
+        if (!isActiveAndEnabled) return;   // หน้าปิดอยู่ -> รอโหลดตอนเปิดแท็บ (OnEnable)
         ClearContent();
         StartCoroutine(FetchMyFriendsRoutine());
     }
@@ -80,7 +89,7 @@ public class MyFriendsViewController : MonoBehaviour
         if (acceptedFriendIds.Count == 0) yield break;
 
         // Step 2: Fetch user profile table
-        // 🤝 ดึงเฉพาะ user ที่เป็นเพื่อน (เดิมดึงทั้งตาราง แล้วโดนตัดที่ 1000 แถว เพื่อนบางคนเลยหาย)
+        // 🤝 ดึงเฉพาะ user ที่เป็นเพื่อน (ไม่ดึงทั้งตาราง เพราะ Supabase ตอบได้สูงสุด 1000 แถว)
         yield return StartCoroutine(SupabaseManager.Instance.GetAllUsers(
             (json) => { allUsers = JsonConvert.DeserializeObject<List<UserData>>(json); },
             (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); },
@@ -179,7 +188,6 @@ public class MyFriendsViewController : MonoBehaviour
     }
 
     // 🤝 รูปโปรไฟล์ = รูปบัดดี้ของผู้เล่น (16 แบบตาม MBTI) ดูส่วน Buddy Avatar ใน SupabaseManager
-    //    (เดิมโหลดจาก Resources/Sprites/Buddies ซึ่งไม่มีโฟลเดอร์นี้ รูปเลยไม่เคยขึ้น)
     private Sprite GetAvatarSprite(string buddyId)
     {
         return SupabaseManager.Instance.GetBuddyAvatarSprite(buddyId);

@@ -10768,6 +10768,11 @@ MonoBehaviour:
   supabaseUrl: https://xwvqxyeybgwiaxpodnaq.supabase.co
   supabaseAnonKey: sb_publishable_14M9lB3dIwbc-eOX-LbK-w_A-3mv1UR
   currentUserId: 
+  cachedInventoryJson: 
+  cachedPlayerPlantJson: 
+  cachedSpeciesJson: 
+  cachedStagesJson: 
+  cachedRulesJson: 
   expPerLevelStep: 100
   levelUpFlowerPerLevel: 50
   expFromCraftFertilizer: 10
@@ -10780,6 +10785,8 @@ MonoBehaviour:
   playerTotalExp: 0
   playerFlowerPoints: 0
   playerGreenPoints: 0
+  playerEmail: 
+  playerBuddyId: 
   playerStatsLoaded: 0
 --- !u!1 &653394104
 GameObject:
@@ -26258,6 +26265,7 @@ MonoBehaviour:
   playerEXP: 0
   lastWateredAt: 
   plantedAt: 
+  friendWateredAt: 
   testModeInSeconds: 0
   currentActiveBuff: None
   buffRemainingSeconds: 0

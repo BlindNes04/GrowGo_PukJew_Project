@@ -305,6 +305,19 @@ public class MainRewardController : MonoBehaviour
         return group;
     }
 
+    // ==================== 🐢 เต่า DOUBLE_DROP_CHANCE: โอกาสได้ของเป็น 2 ชิ้น ====================
+    // ค่าในตาราง buddy = 0.1 -> มีโอกาส 10% ที่ไอเทมที่ได้จะเป็น 2 ชิ้น
+    private int GetRewardQuantity()
+    {
+        BuffManager buff = BuffManager.Instance;
+        if (buff.Has(SkillType.DOUBLE_DROP_CHANCE) && UnityEngine.Random.value <= buff.activeBuddySkillValue)
+        {
+            Debug.Log("[Buddy] 🐢 เต่าช่วยหา! ได้ไอเทม 2 ชิ้น");
+            return 2;
+        }
+        return 1;
+    }
+
     private void OnBackToStartClicked()
     {
         if (MAudioManager.instance != null)
@@ -314,7 +327,7 @@ public class MainRewardController : MonoBehaviour
         {
             SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
                 currentRewardedItemId,
-                1,
+                GetRewardQuantity(),   // 🐢 เต่า: มีโอกาสได้ 2 ชิ้น
                 onSuccess: () =>
                 {
                     Debug.Log($"[MainRewardController] 🟢 บันทึกไอเทม '{currentRewardedItemId}' ลง Supabase DB สำเร็จ!");
@@ -356,6 +369,7 @@ public class MainRewardController : MonoBehaviour
                     return;
                 }
                 Debug.Log($"[DailyReward] 🟢 ได้ {result.reward_item_name} ({result.reward_item_id}) tier {result.reward_tier} x{result.reward_quantity} -> ใส่ inventory ใน DB แล้ว");
+                GivePenguinDailyGift();                          // 🐧 เพนกวิน: ล็อกอินวันใหม่ได้ของกรอบเงินเพิ่ม
                 if (this == null) return;                        // เปลี่ยนซีนไปแล้ว
                 OpenDailyRewardPopup(result.reward_item_id, result.reward_item_name, result.reward_tier, result.reward_quantity);
             },
@@ -364,6 +378,26 @@ public class MainRewardController : MonoBehaviour
                 Debug.LogError($"[MainRewardController] 🔴 เช็ครางวัลประจำวันล้มเหลว: {error}");
             }
         ));
+    }
+
+    // ==================== 🐧 เพนกวิน DAILY_SILVER_GIFT: ล็อกอินวันใหม่ได้ไอเทมกรอบเงิน ====================
+    // ทำงานตอนรับรางวัลประจำวันสำเร็จ (= วันใหม่ครั้งแรก DB เช็กให้แล้ว) -> สุ่มไอเทม rarity_tier = silver จากตาราง item
+    // จำนวน = ค่าในตาราง buddy (1 ชิ้น)
+    private void GivePenguinDailyGift()
+    {
+        BuffManager buff = BuffManager.Instance;
+        if (!buff.Has(SkillType.DAILY_SILVER_GIFT)) return;
+        int amount = Mathf.Max(1, Mathf.RoundToInt(buff.activeBuddySkillValue));
+        SupabaseManager db = SupabaseManager.Instance;
+
+        db.StartCoroutine(db.GetRest("item?select=item_id,item_name&rarity_tier=eq.silver", json =>
+        {
+            var rows = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json);
+            if (rows == null || rows.Count == 0) return;
+            var pick = rows[UnityEngine.Random.Range(0, rows.Count)];
+            Debug.Log($"[Buddy] 🐧 เพนกวินส่งของ: {pick["item_name"]} x{amount}");
+            db.StartCoroutine(db.AddItemToInventory(pick["item_id"], amount));
+        }));
     }
 
     // ใส่ข้อมูลไอเทมลง DailyRewardPopup แล้วเล่นอนิเมชัน (ใช้ PopAnimation/FadeAnimation ตัวเดียวกับหน้าต่างเดิม)

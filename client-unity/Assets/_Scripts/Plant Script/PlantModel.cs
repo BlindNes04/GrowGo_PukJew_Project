@@ -54,6 +54,14 @@ public class SupabasePlayerPlant
     public int immunity_shields;
     public string planted_at;
     public string friend_watered_at; // 🤝 เยี่ยมสวนเพื่อน: เวลาที่เพื่อนมารดน้ำให้ล่าสุด (ไม่แตะ last_watered_at ของเจ้าของ)
+    // ⚖️ ระบบสมดุลใหม่ (คอลัมน์เพิ่ม 2026-11-13)
+    public int water_pool_total;        // สารอาหารจากการรดน้ำรอบล่าสุด
+    public int water_pool_absorbed;     // ดูดเข้าหลอดไปแล้ว
+    public string water_pool_started_at;// เวลาเริ่มดูด
+    public int fert_used_today;         // ใส่ปุ๋ยวันนี้กี่ครั้ง
+    public int heart_gained_today;      // หัวใจจากปุ๋ย/ไอเทมวันนี้
+    public string daily_count_date;     // วันที่ของตัวนับ (เวลาไทย)
+    public string dry_penalty_at;       // 🥀 ป่วยจากขาดน้ำ: เวลาหักหัวใจครั้งล่าสุด (null = ไม่ได้ป่วยจากขาดน้ำ)
 }
 
 // 🛠️ Helper Classes สำหรับแปลง JSON Array จาก Supabase

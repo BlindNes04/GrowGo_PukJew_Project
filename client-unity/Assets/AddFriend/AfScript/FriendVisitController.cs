@@ -10,19 +10,19 @@ using Newtonsoft.Json;
 // ==================== FriendVisitController ====================
 // คุมฉาก FriendVisit (หน้าเยี่ยมสวนเพื่อน) ทั้งหมด:
 //   1) แถบเพื่อน      : รูป ชื่อ เลเวลของเพื่อน + ปุ่มคลิปบอร์ด (คัดลอกชื่อเพื่อน) + กดรูปเพื่อนเปิดป๊อปอัปข้อมูล
-//   2) ต้นไม้ของเพื่อน : โชว์ร่างตาม stage_id ที่เพื่อนเลี้ยงอยู่ (ใช้ MCController ตัวเดิม)
+//   2) ต้นไม้ของเพื่อน : โชว์ร่างตาม stage_id ที่เพื่อนเลี้ยงอยู่ (ใช้ MCController ตัวเดียวกับสวนเรา)
 //   3) บัดดี้ของเพื่อน : รูปบัดดี้ตาม buddy_id ของเพื่อน
 //   4) ปุ่มล่าง 3 ปุ่ม : กลับบ้าน / รดน้ำให้เพื่อน / ไปบ้านเพื่อนคนถัดไป
 //
 // ⚠️ ฉากนี้ "ดูอย่างเดียว" ไม่ใช้ PlantStatus เพราะ PlantStatus จะเซฟทับต้นไม้ของเราเอง
 //    การรดน้ำให้เพื่อนเขียนลง DB ผ่าน RPC water_friend_plant เท่านั้น (SupabaseManager.WaterFriendPlant)
 //
-// กติการดน้ำให้เพื่อน (คุยกับเจ้าของเกม 11/11/2026):
+// กติการดน้ำให้เพื่อน:
 //   - รดได้เฉพาะต้นที่ "หิวน้ำ" (ครบเวลารดน้ำแล้ว) และไม่ป่วย
 //   - แต่ละต้นช่วยรดได้วันละครั้ง (รีเที่ยงคืนเวลาไทย)
 //   - ต้นแรกของเพื่อนคนนั้นในวันนี้ : ได้ EXP เต็ม + แต้มดอกไม้สุ่ม
 //   - ต้นถัดไปของเพื่อนคนเดิม       : ได้ EXP ครึ่งเดียว ไม่ได้แต้มดอกไม้
-//   - เจ้าของต้นได้แค่ความชุ่มชื้น 60% (ไม่เต็มหลอด เจ้าของยังต้องเข้ามารดเอง)
+//   - เจ้าของต้นได้ความชุ่มชื้นตาม moistureShown (ค่าใน Inspector ตอนนี้ 100%)
 //     DB บันทึก friend_watered_at ไม่แตะ last_watered_at ของเจ้าของ
 public class FriendVisitController : MonoBehaviour
 {
@@ -277,7 +277,7 @@ public class FriendVisitController : MonoBehaviour
         if (friendPfpImage != null && pfp != null) { friendPfpImage.sprite = pfp; friendPfpImage.preserveAspect = true; }
 
         // ตัวบัดดี้ข้างต้นไม้ : Resources/main_buddy/{mbti} (ชุดเดียวกับ BuddyDisplayManager)
-        Sprite body = SupabaseManager.Instance.LoadBuddySprite("main_buddy/" + mbti);   // 🤝 main_buddy/infj ตั้งเป็น Multiple เดิมโหลดได้ null บัดดี้เลยหาย
+        Sprite body = SupabaseManager.Instance.LoadBuddySprite("main_buddy/" + mbti);   // 🤝 LoadBuddySprite รองรับรูปที่ตั้งเป็น Multiple (เช่น main_buddy/infj)
         if (buddyImage != null && body != null)
         {
             buddyImage.sprite = body;
@@ -569,7 +569,7 @@ public class FriendVisitController : MonoBehaviour
         buddyPopupRoutine = StartCoroutine(HideLater(buddyPopup, buddyPopupSeconds));
     }
 
-    // สีตัวอักษร MBTI ตามบ้าน (ก๊อปมาจาก BuddyDisplayManager.GetMbtiColor)
+    // สีตัวอักษร MBTI ตามบ้าน (สีชุดเดียวกับ BuddyDisplayManager.GetMbtiColor)
     private Color GetMbtiColor(string mbti)
     {
         if (string.IsNullOrEmpty(mbti)) return Color.white;
