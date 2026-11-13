@@ -96,8 +96,9 @@ public class PlantStatus : MonoBehaviour
     public int baseRelationshipFromWater = 5;
 
     [Header("🐾 ข้อมูล Buddy Passive Buff")]
-    public string activeBuddySkillType = "NONE"; // เช่น CURE_SICK_CHANCE, DRY_GRACE_TIME
+    public string activeBuddySkillType = "NONE"; // เช่น WATER_SHIELD_CHANCE, DRY_GRACE_TIME
     public float activeBuddySkillValue = 0f;
+    public int hamsterShieldCap = 3;              // 🐹 แฮมสเตอร์เติมเกราะได้สูงสุดกี่ชั้น
 
     public float baseNutrientsFromFertilizer = 25f;
     public int baseExpFromFertilizer = 25;
@@ -635,24 +636,21 @@ public class PlantStatus : MonoBehaviour
             }
         }
 
-        // ---------- 🐹 แฮมสเตอร์ CURE_SICK_CHANCE: มีโอกาสรักษาป่วยตอนรดน้ำ ----------
-        if (isSick && activeBuddySkillType == "CURE_SICK_CHANCE")
-        {
-            float roll = UnityEngine.Random.value; // สุ่ม 0.0 ถึง 1.0
-            if (roll <= activeBuddySkillValue)
-            {
-                isSick = false;
-                sickUntil = "";
-                ClearDrySickness();
-                Debug.Log("[PlantStatus] 🐾 บัดดี้ช่วยรักษาอาการป่วยให้ตอนรดน้ำสำเร็จ!");
-            }
-        }
-
         if (!CanWater()) return;
 
         lastWateredAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         currentMoisture = maxMoisture;
         StartWaterPool();   // 💧 รดน้ำ = ได้สารอาหารก้อนใหม่ ค่อยๆ ดูดเข้าหลอดใน 10 นาที
+
+        // ---------- 🐹 แฮมสเตอร์ WATER_SHIELD_CHANCE: รดน้ำแล้วมีโอกาสได้เกราะ +1 (ค่าในตาราง buddy = 0.35) ----------
+        // เติมได้ถึง hamsterShieldCap ชั้นเท่านั้น (เกราะจากยา CURE ไม่ติดเพดานนี้) กันเกราะสะสมจนต้นไม่มีวันป่วย
+        if (activeBuddySkillType == "WATER_SHIELD_CHANCE" && immunityShields < hamsterShieldCap && UnityEngine.Random.value <= activeBuddySkillValue)
+        {
+            immunityShields++;
+            Debug.Log($"[PlantStatus] 🐹 แฮมสเตอร์ให้เกราะ +1 (มี {immunityShields} ชั้น)");
+            BuddyDisplayManager buddy = FindAnyObjectByType<BuddyDisplayManager>();
+            if (buddy != null) buddy.ShowBuddyMessage("🐹 แฮมสเตอร์ให้เกราะกันป่วย +1");
+        }
 
         // คำนวณ EXP พื้นฐาน + บัฟบัดดี้ + ตัวคูณสภาพอากาศ (exp_multiplier)
         float buddyExpBonus = (activeBuddySkillType == "WATER_PLANT_EXP") ? activeBuddySkillValue : 0f;

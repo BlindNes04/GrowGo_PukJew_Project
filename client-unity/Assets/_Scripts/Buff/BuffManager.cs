@@ -14,7 +14,7 @@ public enum SkillType
     FRIEND_FLOWER_BONUS,
     SEED_CASHBACK,
     DOUBLE_DROP_CHANCE,
-    CURE_SICK_CHANCE,
+    WATER_SHIELD_CHANCE,
     LEVELUP_BONUS_POINTS,
     DAILY_SILVER_GIFT,
     SEED_PRICE_DISCOUNT,
@@ -85,9 +85,10 @@ public class BuffManager : MonoBehaviour
 
     // โหลดสกิลบัดดี้ของผู้เล่นจาก DB (ตาราง user.buddy_id -> ตาราง buddy.skill_type / skill_value)
     // เรียกตอน Preload ข้อมูลผู้เล่น และตอนเปลี่ยนบัดดี้ -> ไม่ต้องรอเข้าฉาก MainForest ก่อน สกิลก็ทำงานทุกฉาก
-    public void RefreshFromDatabase()
+    // คืนค่า Coroutine ให้คนเรียกรอจนโหลดเสร็จได้ (หน้าโหลดใช้นับความคืบหน้า)
+    public Coroutine RefreshFromDatabase()
     {
-        StartCoroutine(RefreshFromDatabaseRoutine());
+        return StartCoroutine(RefreshFromDatabaseRoutine());
     }
 
     private System.Collections.IEnumerator RefreshFromDatabaseRoutine()

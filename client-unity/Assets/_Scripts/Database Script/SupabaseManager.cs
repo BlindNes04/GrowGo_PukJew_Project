@@ -225,27 +225,45 @@ public class SupabaseManager : MonoBehaviour
     private bool isRefreshingInventoryCache = false;
     private bool refreshInventoryAgain = false;
 
-    /// <summary> โหลดข้อมูลผู้เล่นทั้งหมดมาเก็บไว้ (เรียกซ้ำได้ ถ้ากำลังโหลดอยู่จะไม่ยิงซ้ำ) </summary>
+    // ⏳ ความคืบหน้าการ preload (0-1) หน้า LoadingScene เอาไปแสดงเป็นหลอดโหลด
+    //    แบ่งเป็น 5 ขั้น เสร็จขั้นไหนบวก 0.2: ข้อมูลผู้เล่น / ต้นไม้ / ข้อมูลกลางของพืช / กระเป๋า / สกิลบัดดี้
+    [HideInInspector] public float preloadProgress = 0f;
+    public bool IsPreloading => isPreloading;
+    private string preloadedUserId = "";   // preload เสร็จแล้วของผู้เล่นคนไหน (กันโหลดซ้ำตอนเข้า MainMenu)
+
+    /// <summary> โหลดข้อมูลผู้เล่นทั้งหมดมาเก็บไว้ (เรียกซ้ำได้ ถ้ากำลังโหลดอยู่ หรือโหลดของคนนี้เสร็จแล้ว จะไม่ยิงซ้ำ) </summary>
     public void PreloadAll()
     {
-        if (isPreloading || string.IsNullOrEmpty(currentUserId)) return;
+        if (isPreloading || string.IsNullOrEmpty(currentUserId) || preloadedUserId == currentUserId) return;
         StartCoroutine(PreloadAllRoutine());
     }
 
     private IEnumerator PreloadAllRoutine()
     {
         isPreloading = true;
+        preloadProgress = 0f;
+        string userId = currentUserId;
         CheckCacheOwner();
-        Debug.Log($"[Cache] 📦 เริ่ม Preload ข้อมูลของ {currentUserId}");
+        Debug.Log($"[Cache] 📦 เริ่ม Preload ข้อมูลของ {userId}");
 
-        LoadPlayerStats();                                              // ตาราง user (เลเวล/แต้ม/ชื่อ/บัดดี้)
-        yield return StartCoroutine(GetPlayerPlantData(null, null));   // player_plant (เก็บลง cache ในฟังก์ชันเอง)
-        if (string.IsNullOrEmpty(cachedStagesJson))                    // ข้อมูลกลาง โหลดครั้งเดียวพอ
+        LoadPlayerStats();                                              // 1) ตาราง user (เลเวล/แต้ม/ชื่อ/บัดดี้)
+        while (playerStatsLoading) yield return null;
+        preloadProgress = 0.2f;
+
+        yield return StartCoroutine(GetPlayerPlantData(null, null));   // 2) player_plant (เก็บลง cache ในฟังก์ชันเอง)
+        preloadProgress = 0.4f;
+
+        if (string.IsNullOrEmpty(cachedStagesJson))                    // 3) ข้อมูลกลางของพืช โหลดครั้งเดียวพอ
             yield return StartCoroutine(GetPlantMasterData(null, null, null, null));
-        yield return StartCoroutine(GetUserInventory(null, null));     // inventory
+        preloadProgress = 0.6f;
 
-        BuffManager.Instance.RefreshFromDatabase();   // 🐾 โหลดสกิลบัดดี้ของผู้เล่นคนนี้ ให้ใช้ได้ทุกฉาก
+        yield return StartCoroutine(GetUserInventory(null, null));     // 4) inventory
+        preloadProgress = 0.8f;
 
+        yield return BuffManager.Instance.RefreshFromDatabase();       // 5) 🐾 สกิลบัดดี้ของผู้เล่นคนนี้ ให้ใช้ได้ทุกฉาก
+        preloadProgress = 1f;
+
+        if (userId == currentUserId) preloadedUserId = userId;   // ระหว่างโหลดเปลี่ยนบัญชี -> ไม่นับว่าโหลดเสร็จ
         isPreloading = false;
         Debug.Log("[Cache] 📦 Preload เสร็จแล้ว");
     }
@@ -256,6 +274,7 @@ public class SupabaseManager : MonoBehaviour
         cachedInventoryJson = null;
         cachedPlayerPlantJson = null;
         cacheOwnerUserId = "";
+        preloadedUserId = "";   // ล็อกอินใหม่ต้อง preload ใหม่
 
         playerStatsLoaded = false;
         playerUsername = ""; playerTag = ""; playerClusterId = ""; playerEmail = ""; playerBuddyId = null;
