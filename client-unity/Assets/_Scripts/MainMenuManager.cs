@@ -187,14 +187,22 @@ public class MainMenuManager : MonoBehaviour
         StartCoroutine(LoginCoroutine(identifier, password));
     }
 
+    // 🔐 เช็กรหัสผ่านที่ฝั่ง DB ผ่าน RPC login_user (เกมไม่ได้อ่านรหัสผ่านจาก DB เลย)
+    //    DB เก็บรหัสแบบ hash (bcrypt) แล้ว hash รหัสที่กรอกมาเทียบ -> ถูก = ได้ user_id / username / user_tag กลับมา 1 แถว
+    //    ผิด หรือไม่มีบัญชีนี้ = ได้ 0 แถว (ไม่บอกว่าผิดตรงไหน กันคนเดาว่ามีบัญชีนี้อยู่ไหม)
     private IEnumerator LoginCoroutine(string identifier, string password)
     {
-        // ค้นหาด้วย user_id หรือ email ที่ตรงกับ identifier ที่กรอกมา
-        string encodedIdentifier = UnityWebRequest.EscapeURL(identifier);
-        string url = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,password&or=(user_id.eq.{encodedIdentifier},email.eq.{encodedIdentifier})";
-
-        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        string url = $"{SupabaseManager.Instance.supabaseUrl}/rest/v1/rpc/login_user";
+        string jsonBody = JsonConvert.SerializeObject(new Dictionary<string, string>
         {
+            { "p_identifier", identifier },   // user_id หรือ email
+            { "p_password", password }
+        });
+
+        using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+        {
+            req.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
+            req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("apikey", SupabaseManager.Instance.supabaseAnonKey);
             req.SetRequestHeader("Authorization", $"Bearer {SupabaseManager.Instance.supabaseAnonKey}");
             req.SetRequestHeader("Content-Type", "application/json");
@@ -210,38 +218,27 @@ public class MainMenuManager : MonoBehaviour
                 if (users != null && users.Count > 0)
                 {
                     var user = users[0];
-                    string dbPassword = user.ContainsKey("password") ? user["password"] : "";
+                    string userId = user["user_id"];
+                    string username = user.ContainsKey("username") ? user["username"] : userId;
 
-                    // เช็กรหัสผ่านว่าตรงกับใน DB หรือไม่
-                    if (dbPassword == password)
-                    {
-                        string userId = user["user_id"];
-                        string username = user.ContainsKey("username") ? user["username"] : userId;
+                    SupabaseManager.Instance.currentUserId = userId;
+                    PlayerPrefs.SetString("SavedUserId", userId);
+                    PlayerPrefs.Save();
+                    SupabaseManager.Instance.PreloadAll();   // 📦 ล็อกอินสำเร็จ -> โหลดข้อมูลบัญชีนี้เก็บ cache (บัญชีเก่าถูกล้างอัตโนมัติ)
 
-                        SupabaseManager.Instance.currentUserId = userId;
-                        PlayerPrefs.SetString("SavedUserId", userId);
-                        PlayerPrefs.Save();
-                        SupabaseManager.Instance.PreloadAll();   // 📦 ล็อกอินสำเร็จ -> โหลดข้อมูลบัญชีนี้เก็บ cache (บัญชีเก่าถูกล้างอัตโนมัติ)
+                    // 🔐 สร้าง session ใหม่ (เครื่องอื่นที่ล็อกอินบัญชีนี้อยู่จะถูกเด้งออก) + บันทึก last_login_at
+                    SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.StartNewSession(userId));
 
-                        // 🔐 สร้าง session ใหม่ (เครื่องอื่นที่ล็อกอินบัญชีนี้อยู่จะถูกเด้งออก) + บันทึก last_login_at
-                        SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.StartNewSession(userId));
+                    ShowStatus(loginStatusText, $"ยินดีต้อนรับคุณ {username}!", Color.green);
+                    Debug.Log($"[Auth] 🟢 ล็อกอินสำเร็จ! User ID: {userId}");
 
-                        ShowStatus(loginStatusText, $"ยินดีต้อนรับคุณ {username}!", Color.green);
-                        Debug.Log($"[Auth] 🟢 ล็อกอินสำเร็จ! User ID: {userId}");
-
-                        yield return new WaitForSeconds(1.0f);
-                        OnClickPlay();
-                    }
-                    else
-                    {
-                        // กรณีรหัสผ่านไม่ตรง
-                        ShowStatus(loginStatusText, "รหัสผ่านไม่ถูกต้อง!", Color.red);
-                    }
+                    yield return new WaitForSeconds(1.0f);
+                    OnClickPlay();
                 }
                 else
                 {
-                    // ไม่พบ User ID หรือ Email นี้ใน DB
-                    ShowStatus(loginStatusText, "ไม่พบชื่อผู้ใช้หรืออีเมลนี้!", Color.red);
+                    // รหัสผ่านผิด หรือไม่มีบัญชีนี้
+                    ShowStatus(loginStatusText, "ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง!", Color.red);
                 }
             }
             else
