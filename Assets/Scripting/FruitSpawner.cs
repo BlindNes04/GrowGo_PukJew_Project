@@ -12,7 +12,7 @@ public class FruitSpawner : MonoBehaviour
     public float rightBound = 1000f;
 
     [Header("เส้นเล็ง (Aim Line)")]
-    public LineRenderer aimLine; // กลับมาใช้ Line Renderer
+    public LineRenderer aimLine; 
 
     private GameObject currentFruit;
     private int nextFruitIndex;
@@ -28,10 +28,10 @@ public class FruitSpawner : MonoBehaviour
 
     void Update()
     {
-        // ถ้ารอปล่อยอยู่ และมีผลไม้อยู่บนหัว
+    
         if (isReadyToDrop && currentFruit != null)
         {
-            // 1. จัดการการเลื่อนผลไม้ (เฉพาะตอนกดเมาส์ค้าง)
+            // จัดการการเลื่อนผลไม้ 
             if (Input.GetMouseButton(0) && !EventSystem.current.IsPointerOverGameObject())
             {
                 Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -39,24 +39,17 @@ public class FruitSpawner : MonoBehaviour
                 currentFruit.transform.position = new Vector3(clampedX, transform.position.y, 0);
             }
 
-            // 2. วาดเส้นเล็ง (ทำตลอดเวลา ไม่ต้องรอกดเมาส์)
+            //วาดเส้นเล็ง
             if (aimLine != null)
             {
                 aimLine.enabled = true;
                 Vector2 startPos = currentFruit.transform.position;
-                aimLine.SetPosition(0, startPos); // จุดเริ่มที่ผลไม้
+                aimLine.SetPosition(0, startPos);
 
-                // ปิดกรอบชนของผลไม้ที่ถืออยู่ชั่วคราว
-                //Collider2D col = currentFruit.GetComponent<Collider2D>();
-                //if (col != null) col.enabled = false;
-
-                // ยิงเรดาร์ลงด้านล่าง
+                // เรดาร์
                 RaycastHit2D hit = Physics2D.Raycast(startPos, Vector2.down);
 
-                // เปิดกรอบชนกลับคืน
-                //if (col != null) col.enabled = true;
-
-                // อัปเดตจุดปลายเส้น ให้หยุดตรงที่ชนพอดี
+                // อัปเดตจปลายเส้น
                 if (hit.collider != null)
                 {
                     aimLine.SetPosition(1, hit.point);
@@ -69,7 +62,7 @@ public class FruitSpawner : MonoBehaviour
         }
         else
         {
-            // ถ้าปล่อยไปแล้ว ให้ซ่อนเส้น
+            // ซ่อนเส้นหลังปล่อย
             if (aimLine != null) aimLine.enabled = false;
         }
     }
@@ -81,7 +74,7 @@ public class FruitSpawner : MonoBehaviour
         rb.gravityScale = 0f;
         rb.linearVelocity = Vector2.zero;
 
-        // ปิดการชนตอนเพิ่งเสก เพื่อไม่ให้กระเด็นตอนผลไม้ล้นกล่อง
+        // ไม่ให้กระเด็นตอนผลไม้ล้นกล่อง
         Collider2D col = currentFruit.GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
 
@@ -101,16 +94,16 @@ public class FruitSpawner : MonoBehaviour
             isReadyToDrop = false;
             if (aimLine != null) aimLine.enabled = false; // ปิดเส้นทันทีที่กดปล่อย
 
-            // 💡 เรียกเล่นเสียงตอนปล่อยผลไม้
+            // เสียงตอนปล่อยผลไม้
             if (AudioManager.instance != null) AudioManager.instance.PlayDrop();
             
             Rigidbody2D rb = currentFruit.GetComponent<Rigidbody2D>();
             rb.gravityScale = 1f;
 
-            // 💡 เพิ่มบรรทัดนี้: แอบใส่แรงผลักซ้ายหรือขวาแบบสุ่มนิดๆ เพื่อทำลายสมดุลไม่ให้มันซ้อนเป็นหอคอย
+            // ทำลายสมดุลไม่ให้มันซ้อนเป็นหอคอย
             rb.linearVelocity = new Vector2(Random.Range(-0.2f, 0.2f), 0f);
 
-            // เปิดการชนตอนปล่อย ให้ร่วงไปทับลูกอื่นได้
+            // เปิดการชน
             Collider2D col = currentFruit.GetComponent<Collider2D>();
             if (col != null) col.enabled = true;
 
