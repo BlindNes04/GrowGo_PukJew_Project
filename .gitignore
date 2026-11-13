@@ -7,5 +7,9 @@ __pycache__/
 venv/
 .venv/
 
-# Model Files & Large Datasets
+# Large Datasets
+<<<<<<< HEAD
 *.csv
+=======
+*.csv
+>>>>>>> 6a5dcd93f7e4718184884a979e297182765d1ac4
