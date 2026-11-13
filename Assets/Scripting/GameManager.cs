@@ -98,7 +98,7 @@ public class GameManager : MonoBehaviour
             if (randomGeneral == 0) SetRewardUI(soilSprite, "ดินโบราณ x3");
             else if (randomGeneral == 1) SetRewardUI(chickenManureSprite, "มูลไก่หมัก x3");
             else if (randomGeneral == 2) SetRewardUI(eggshellSprite, "เปลือกไข่บด x3");
-            else if (randomGeneral == 3) SetRewardUI(herbSprite, "สมุรไพร x3");
+            else if (randomGeneral == 3) SetRewardUI(herbSprite, "สมุนไพร x3");
         }
 
         if (gameOverPopup != null)
