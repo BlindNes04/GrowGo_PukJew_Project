@@ -111,7 +111,7 @@ public class WeatherManager : MonoBehaviour
         {
             new SupabaseWeather { weather_id = "WTH_CLEAR", name = "Clear Day", exp_multiplier = 1.0f, auto_water = false, water_damage_chance = 0.0f, heat_damage_chance = 0.05f },
             new SupabaseWeather { weather_id = "WTH_HOT", name = "Heat Wave", exp_multiplier = 1.4f, auto_water = false, water_damage_chance = 0.0f, heat_damage_chance = 0.15f },
-            new SupabaseWeather { weather_id = "WTH_MIST", name = "Mystic Mist", exp_multiplier = 1.1f, auto_water = false, water_damage_chance = 0.05f, heat_damage_chance = 0.0f },
+            new SupabaseWeather { weather_id = "WTH_MIST", name = "Mystic Mist", exp_multiplier = 1.0f, relationship_multiplier = 1.1f, auto_water = false, water_damage_chance = 0.05f, heat_damage_chance = 0.0f },
             new SupabaseWeather { weather_id = "WTH_RAIN", name = "Light Rain", exp_multiplier = 1.2f, auto_water = true, water_damage_chance = 0.10f, heat_damage_chance = 0.0f },
             new SupabaseWeather { weather_id = "WTH_STORM", name = "Heavy Storm", exp_multiplier = 1.5f, auto_water = true, water_damage_chance = 0.30f, heat_damage_chance = 0.0f }
         };

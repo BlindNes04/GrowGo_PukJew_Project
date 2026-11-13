@@ -1314,19 +1314,19 @@ MonoBehaviour:
   homeSceneName: Quiz
   silverItems:
   - itemId: ITEM_ING_EGG
-    itemName: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E02\u0E48"
+    itemName: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E02\u0E48\u0E1A\u0E14"
     itemIcon: {fileID: 21300000, guid: fcff8c5b2e6731c4c86ce525f3497f53, type: 3}
   - itemId: ITEM_ING_HERB
-    itemName: "\u0E2A\u0E21\u0E38\u0E19\u0E44\u0E1E\u0E23"
+    itemName: "\u0E2A\u0E21\u0E38\u0E19\u0E44\u0E1E\u0E23\u0E42\u0E1E\u0E23\u0E07"
     itemIcon: {fileID: 21300000, guid: f858cbf0199ecba47b92e1360ed6354b, type: 3}
   - itemId: ITEM_ING_CHIC_DROP
     itemName: "\u0E21\u0E39\u0E25\u0E44\u0E01\u0E48\u0E2B\u0E21\u0E31\u0E01"
     itemIcon: {fileID: 21300000, guid: fcff8c5b2e6731c4c86ce525f3497f53, type: 3}
   - itemId: ITEM_ING_SANDPILE
-    itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22"
+    itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22\u0E41\u0E25\u0E30\u0E40\u0E28\u0E29\u0E2B\u0E2D\u0E22"
     itemIcon: {fileID: 21300000, guid: 42991a1ff2a2aaa48a7dfdde154817e4, type: 3}
   - itemId: ITEM_ING_SEAWEED_POTION
-    itemName: "\u0E42\u0E1E\u0E0A\u0E31\u0E48\u0E19\u0E2A\u0E32\u0E2B\u0E23\u0E48\u0E32\u0E22"
+    itemName: "\u0E42\u0E1E\u0E0A\u0E31\u0E48\u0E19\u0E2A\u0E32\u0E2B\u0E23\u0E48\u0E32\u0E22\u0E40\u0E23\u0E37\u0E2D\u0E07\u0E41\u0E2A\u0E07"
     itemIcon: {fileID: 21300000, guid: f35711a73d3e9a64d838b076c9168ac8, type: 3}
   goldItems:
   - itemId: ITEM_ING_ANCIENT_SOIL
@@ -1345,7 +1345,7 @@ MonoBehaviour:
     itemIcon: {fileID: 21300000, guid: ee390409694b23947a71854afbdb94fb, type: 3}
   revivePotion:
     itemId: ITEM_BB_REVIVE_POTION
-    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E23\u0E48\u0E32\u0E07"
+    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E0A\u0E35\u0E1E"
     itemIcon: {fileID: 21300000, guid: 73e326aa99675954dad9318919101bac, type: 3}
   rotateSpeed: 20
 --- !u!4 &700068769
@@ -1530,7 +1530,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E23\u0E48\u0E32\u0E07"
+  m_text: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E04\u0E37\u0E19\u0E0A\u0E35\u0E1E"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2a462cff7fc6d8440bad73971515af1b, type: 2}
   m_sharedMaterial: {fileID: 358377467932008660, guid: 2a462cff7fc6d8440bad73971515af1b, type: 2}

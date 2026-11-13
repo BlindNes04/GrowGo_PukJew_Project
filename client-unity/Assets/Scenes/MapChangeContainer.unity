@@ -2042,8 +2042,9 @@ MonoBehaviour:
   lockOverlay: {fileID: 663553837}
   timeContainer: {fileID: 912733962}
   timerText: {fileID: 1585889935}
-  year: 2026
-  month: 8
+  islandId: ISL_MIST
+  year: 3026
+  month: 1
   day: 1
   hour: 0
   minute: 0

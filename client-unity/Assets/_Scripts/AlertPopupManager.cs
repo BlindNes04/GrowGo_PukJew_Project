@@ -43,7 +43,7 @@ public class AlertPopupManager : MonoBehaviour
         if (moisture > 0 && moisturePopup != null)
         {
             if (moistureText != null) 
-                moistureText.text = $"+{moisture} ความชุ่มชื้น"; // 👈 ตรงตามรูปมึงเป๊ะๆ
+                moistureText.text = $"+{moisture} ความชุ่มชื้น";
             
             StartCoroutine(ShowAndHideRoutine(moisturePopup));
         }
@@ -61,7 +61,7 @@ public class AlertPopupManager : MonoBehaviour
         if (flower > 0 && flowerPopup != null)
         {
             if (flowerText != null) 
-                flowerText.text = $"+{flower} แค้มดอกไม้";
+                flowerText.text = $"+{flower} แต้มดอกไม้";
             
             StartCoroutine(ShowAndHideRoutine(flowerPopup));
         }
@@ -70,7 +70,7 @@ public class AlertPopupManager : MonoBehaviour
         if (relationship > 0 && relationshipPopup != null)
         {
             if (relationshipText != null) 
-                relationshipText.text = $"+{relationship} ค่าความสัมพันธ์";
+                relationshipText.text = $"+{relationship} แต้มความสัมพันธ์";
             
             StartCoroutine(ShowAndHideRoutine(relationshipPopup));
         }

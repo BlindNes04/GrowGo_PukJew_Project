@@ -22,6 +22,7 @@ public class SupabaseWeather
     public string weather_id;
     public string name;
     public float exp_multiplier;
+    public float relationship_multiplier = 1f;   // ตัวคูณแต้มความสัมพันธ์ (วันหมอก 1.1) ไม่มีค่าใน DB = 1
     public bool auto_water;
     public float water_damage_chance;
     public float heat_damage_chance;
@@ -435,6 +436,13 @@ public class SupabaseManager : MonoBehaviour
             yield break;
         }
 
+        // 🧹 จำนวนเหลือ 0 (ใช้ชิ้นสุดท้าย) -> ลบแถวทิ้ง ไม่เก็บแถวจำนวน 0 ค้างในกระเป๋า
+        if (newQuantity <= 0)
+        {
+            yield return StartCoroutine(DeleteItemFromInventory(itemId, onSuccess, onError));
+            yield break;
+        }
+
         string endpoint = $"{supabaseUrl}/rest/v1/inventory?user_id=eq.{GetActiveUserId()}&item_id=eq.{itemId}";
         string nowIso = DateTime.UtcNow.ToString("o");
         string jsonBody = $"{{\"quantity\": {newQuantity}, \"updated_at\": \"{nowIso}\"}}";
@@ -522,6 +530,13 @@ public class SupabaseManager : MonoBehaviour
             {
                 int newQty = items[0].quantity + addQuantity;
 
+                // 🔒 หักเกินจำนวนที่มี (เช่น กดใช้รัวๆ จนของหมดไปแล้ว) -> ไม่สำเร็จ ไม่หัก ไม่ให้ใช้ของฟรี
+                if (newQty < 0)
+                {
+                    onError?.Invoke("Not enough item");
+                    yield break;
+                }
+
                 if (newQty <= 0)
                 {
                     yield return StartCoroutine(DeleteItemFromInventory(itemId, onSuccess, onError));
@@ -533,9 +548,10 @@ public class SupabaseManager : MonoBehaviour
             }
             else
             {
+                // 🔒 ไม่มีของชิ้นนี้ในกระเป๋าแล้ว แต่สั่งหัก -> ไม่สำเร็จ (กันใช้ของที่ไม่มีได้ฟรี)
                 if (addQuantity <= 0)
                 {
-                    onSuccess?.Invoke();
+                    onError?.Invoke("Not enough item");
                     yield break;
                 }
 

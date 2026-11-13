@@ -183,7 +183,7 @@ public class WeatherPopupController : MonoBehaviour
             case "WTH_HOT":
                 return "แดดจัดระอุ! น้ำแห้งไวขึ้น 1.8x ระวังพืชเหี่ยวเฉา";
             case "WTH_MIST":
-                return "หมอกลงจัด บรรยากาศเงียบสงบ เพิ่มความสัมพันธ์ดี";
+                return "หมอกลงจัด บรรยากาศเงียบสงบ ได้แต้มความสัมพันธ์เพิ่ม 10%";
             case "WTH_RAIN":
                 return "ฝนตกปรอยๆ รดน้ำให้อัตโนมัติ! แต่ระวังพืชป่วยนะ";
             case "WTH_STORM":

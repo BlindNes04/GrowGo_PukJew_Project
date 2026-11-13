@@ -219,9 +219,13 @@ public class MainInventoryManager : MonoBehaviour
         return type == "seed" || type == "booster" || type == "special item";
     }
 
+    // 🔒 กำลังใช้ไอเทม/เมล็ด (รอ DB ตอบ) -> กดซ้ำไม่ได้ กันกดรัวแล้วได้ผลหลายครั้งจากของชิ้นเดียว
+    private bool isUsingItem = false;
+
     // 🟢 4. เมื่อกดปุ่ม "เลือก/ใช้" ไอเทม
     public void OnClickSelectButton()
     {
+        if (isUsingItem) return;
         if (currentSelectedItem == -1 || currentSelectedItem >= loadedInventory.Count) return;
 
         SupabaseInventoryItem selectedInvItem = loadedInventory[currentSelectedItem];
@@ -290,11 +294,13 @@ public class MainInventoryManager : MonoBehaviour
         string itemId = invItem.item.item_id;
 
         // 🟢 เช็กเงื่อนไขผ่านเรียบร้อย -> สั่งหักไอเทมออกจาก DB (-1)
+        isUsingItem = true;
         StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
             itemId,
             -1,
             onSuccess: () =>
             {
+                isUsingItem = false;
                 Debug.Log($"[MainInventoryManager] 🟢 หักไอเทม {itemId} ใน DB สำเร็จ!");
 
                 // ส่งไอเทมไปคำนวณและแสดงผลใน PlantStatus
@@ -304,7 +310,12 @@ public class MainInventoryManager : MonoBehaviour
                 FetchInventoryAndRender();
                 CloseDetail();
             },
-            onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 หักไอเทมล้มเหลว: {err}")
+            onError: (err) =>
+            {
+                isUsingItem = false;
+                Debug.LogError($"[MainInventoryManager] 🔴 หักไอเทมล้มเหลว: {err}");
+                FetchInventoryAndRender();   // ของหมดแล้ว/ไม่ตรง -> โหลดกระเป๋าใหม่ให้ตรงกับ DB
+            }
         ));
     }
 
@@ -319,6 +330,7 @@ public class MainInventoryManager : MonoBehaviour
         Debug.Log($"[MainInventoryManager] 🔄 กำลังใช้เมล็ด {seedItemId} (Stage: {initialStageId})...");
 
         // 1. หักเมล็ดออกจาก DB (-1) (ถ้าจำนวนเหลือ 0 จะลบแถวใน DB ให้อัตโนมัติ)
+        isUsingItem = true;
         StartCoroutine(SupabaseManager.Instance.AddItemToInventory(
             seedItemId,
             -1,
@@ -332,6 +344,7 @@ public class MainInventoryManager : MonoBehaviour
                     defaultNickname,
                     onSuccess: () =>
                     {
+                        isUsingItem = false;
                         Debug.Log($"[MainInventoryManager] 🟢 สร้างพืชใหม่ {initialStageId} ลง player_plant สำเร็จ!");
 
                         // 3. รีเฟรช UI กระเป๋าทันทีเพื่อให้จำนวนไอเทมลดลง/หายไปจากหน้าจอ
@@ -345,10 +358,19 @@ public class MainInventoryManager : MonoBehaviour
                             plant.StartCoroutine("LoadAllDataFromSupabaseRoutine");
                         }
                     },
-                    onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 สร้าง player_plant ล้มเหลว: {err}")
+                    onError: (err) =>
+                    {
+                        isUsingItem = false;
+                        Debug.LogError($"[MainInventoryManager] 🔴 สร้าง player_plant ล้มเหลว: {err}");
+                    }
                 ));
             },
-            onError: (err) => Debug.LogError($"[MainInventoryManager] 🔴 หักเมล็ดล้มเหลว: {err}")
+            onError: (err) =>
+            {
+                isUsingItem = false;
+                Debug.LogError($"[MainInventoryManager] 🔴 หักเมล็ดล้มเหลว: {err}");
+                FetchInventoryAndRender();
+            }
         ));
     }
 
@@ -451,6 +473,7 @@ public class MainInventoryManager : MonoBehaviour
 
     private void OnDisable()
     {
+        isUsingItem = false;   // ปิดกระเป๋ากลางทาง coroutine หยุด -> ปลดล็อกปุ่มใช้ ไม่ให้ค้าง
         CloseDetail();
         if (floatingText != null)
         {
@@ -462,7 +485,8 @@ public class MainInventoryManager : MonoBehaviour
     // 🧠 SMART MATCHING FUNCTIONS
     // ==========================================
 
-    private Sprite GetItemSpriteSmart(string itemId)
+    // public: MainPlantStatusView ใช้หารูปเมล็ด (ITEM_SEED_*) ไปโชว์ในหน้าสเตตัสพืช
+    public Sprite GetItemSpriteSmart(string itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return null;
 

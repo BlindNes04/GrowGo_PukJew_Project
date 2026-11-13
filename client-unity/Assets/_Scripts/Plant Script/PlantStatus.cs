@@ -667,7 +667,7 @@ public class PlantStatus : MonoBehaviour
         int finalCoins = Mathf.RoundToInt(baseCoinsFromWater * coinMultiplier);
         // 🦦 นาก WATER_POINTS_BURST: กดรดน้ำได้แต้มดอกไม้เพิ่ม (ค่าในตาราง buddy = 3)
         if (activeBuddySkillType == "WATER_POINTS_BURST") finalCoins += Mathf.RoundToInt(activeBuddySkillValue);
-        int finalRelationship = Mathf.RoundToInt(baseRelationshipFromWater * relationshipMultiplier);
+        int finalRelationship = Mathf.RoundToInt(baseRelationshipFromWater * relationshipMultiplier * GetWeatherRelationshipMultiplier());   // 🌫️ วันหมอก x1.1
 
         playerEXP += finalExp;
         flowerCoins += finalCoins;
@@ -1055,7 +1055,7 @@ public class PlantStatus : MonoBehaviour
 
         int finalExp = Mathf.RoundToInt(gainExp * expMultiplier * weatherExpMult);
         int finalCoins = Mathf.RoundToInt(gainCoins * coinMultiplier);
-        int finalRelationship = Mathf.RoundToInt(gainRelationship * relationshipMultiplier);
+        int finalRelationship = Mathf.RoundToInt(gainRelationship * relationshipMultiplier * GetWeatherRelationshipMultiplier());   // 🌫️ วันหมอก x1.1
 
         currentNutrients = Mathf.Min(maxNutrients, currentNutrients + adjustedNutrients);
         if (gainMoisture > 0)
@@ -1156,6 +1156,14 @@ public class PlantStatus : MonoBehaviour
         if (GetFertilizerLeftToday() > 0) return true;
         message = $"วันนี้ใส่ปุ๋ยต้นนี้ครบ {maxFertilizerPerDay} ครั้งแล้ว พรุ่งนี้มาใหม่นะ";
         return false;
+    }
+
+    // 🌫️ ตัวคูณแต้มความสัมพันธ์ตามสภาพอากาศ (weather.relationship_multiplier: วันหมอก 1.1 วันอื่น 1.0)
+    //    ยังติดเพดานเดิม: จากไอเทมได้ไม่เกิน 20/วัน และรวมไม่เกิน 120 (AddRelationship)
+    private float GetWeatherRelationshipMultiplier()
+    {
+        SupabaseWeather w = WeatherManager.Instance != null ? WeatherManager.Instance.currentWeather : null;
+        return (w != null && w.relationship_multiplier > 0f) ? w.relationship_multiplier : 1f;
     }
 
     // 🦌 กวาง SICK_CHANCE_REDUCE: ลดโอกาสป่วยจากฝน/แดด (ค่าในตาราง buddy = 0.15 = ลดลง 15%)

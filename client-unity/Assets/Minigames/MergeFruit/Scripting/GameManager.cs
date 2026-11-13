@@ -100,7 +100,7 @@ public class GameManager : MonoBehaviour
             if (dropChance < 70) 
                 GrantReward(tomatoSeedItemId, 1, tomatoSeedSprite, "เมล็ดมะเขือเทศ x1");
             else 
-                GrantReward(coconutSeedItemId, 1, coconutSprite, "เมล็ดมะพร้าว x1");
+                GrantReward(coconutSeedItemId, 1, coconutSprite, "หน่อพร้าวกะทิ x1");
         }
         else
         {
@@ -113,7 +113,7 @@ public class GameManager : MonoBehaviour
             else if (randomGeneral == 2) 
                 GrantReward(eggshellItemId, 3, eggshellSprite, "เปลือกไข่บด x3");
             else if (randomGeneral == 3) 
-                GrantReward(herbItemId, 3, herbSprite, "สมุนไพร x3");
+                GrantReward(herbItemId, 3, herbSprite, "สมุนไพรโพรง x3");
         }
 
         if (gameOverPopup != null)

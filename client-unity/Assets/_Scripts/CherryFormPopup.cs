@@ -93,6 +93,14 @@ public class CherryFormPopup : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    // 🍒 รูป seed ของสายพันธุ์ร่าง 4 (LILY / SAKURA / VIOLET) ตาม stage_id ไม่เจอ = null
+    //    MainPlantStatusView ใช้โชว์รูปเมล็ดในหน้าสเตตัสพืช
+    public Sprite GetSeedSpriteForStage(string stageId)
+    {
+        CherryFormCard card = cards.Find(c => c.stageId == stageId);
+        return (card != null && card.seedImage != null) ? card.seedImage.sprite : null;
+    }
+
     // ==================== ปุ่ม CherryForm (มุมขวาบน) ====================
     // PlantStatus.SyncCharacterVisual() เรียกทุกครั้งที่โหลดต้นไม้ / เปลี่ยนร่าง / สลับต้น
     public void RefreshCherryButton(PlantStatus plant)

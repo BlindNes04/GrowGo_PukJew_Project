@@ -21,6 +21,12 @@ public class MainPlantStatusView : MonoBehaviour
     public Image moistureFillBar;          // หลอดสีฟ้า (Moisture_Fill)
     public Image nutrientsFillBar;         // หลอดสีแดง (Nutrient_Fill)
 
+    [Header("🌱 รูปเมล็ดด้านซ้าย เปลี่ยนตามสายพันธุ์")]
+    [Tooltip("ว่างไว้ได้ จะหาลูกชื่อ PlantIcon เอง")]
+    public Image plantSeedIcon;
+    [Tooltip("ว่างไว้ได้ จะหาเองในฉาก (ใช้รูปเมล็ด ITEM_SEED_* จาก itemSprites ของกระเป๋า)")]
+    public MainInventoryManager inventoryManager;
+
     [Header("UI Buttons")]
     public Button waterButton;             // ปุ่ม Water_Button
     public GameObject cooldownWaterButtonObj; // ปุ่ม Cooldown_Water_Button
@@ -73,7 +79,33 @@ public class MainPlantStatusView : MonoBehaviour
         if (gameObject.activeInHierarchy)
         {
             UpdateCooldownUI();
+            CloseWhenTapOutside();
         }
+    }
+
+    // ==================== 👆 แตะนอกหน้าสเตตัส = ปิด ====================
+    // แตะตรงไหนก็ได้นอกกรอบหน้านี้ (รวมปุ่มอื่น เช่น กระเป๋า ร้านค้า เมนู) -> ปิดหน้านี้ก่อน แล้วปุ่มนั้นทำงานต่อตามปกติ
+    // หน้าต่างเลยไม่ซ้อนกัน (แตะที่ว่างผ่าน CloseOverlay ก็ยังปิดได้เหมือนเดิม)
+    // ยกเว้นตอนป๊อปอัปที่เปิดจากหน้านี้ยังเปิดอยู่ (บำรุง / เปลี่ยนชื่อ / แจ้งพืชป่วย) ให้ป๊อปอัปนั้นจัดการเอง
+    private void CloseWhenTapOutside()
+    {
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        bool childPopupOpen =
+            (nourishPopupUI != null && nourishPopupUI.activeInHierarchy) ||
+            (renamePlantPopup != null && renamePlantPopup.gameObject.activeInHierarchy) ||
+            (plantSickPopup != null && plantSickPopup.activeInHierarchy);
+        if (childPopupOpen) return;
+
+        // แตะโดนอะไรก็ได้ที่อยู่ในหน้านี้ (ตัวกรอบ หรือลูกทุกตัว เช่น ปุ่มรดน้ำ/บำรุง ที่วางยื่นออกนอกกรอบ) = ไม่ปิด
+        Canvas canvas = GetComponentInParent<Canvas>();
+        Camera cam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay) ? canvas.worldCamera : null;
+        foreach (RectTransform part in GetComponentsInChildren<RectTransform>())
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(part, Input.mousePosition, cam)) return;
+        }
+
+        CloseView();
     }
 
     // ฟังก์ชันเปิดหน้ารดน้ำ
@@ -95,6 +127,36 @@ public class MainPlantStatusView : MonoBehaviour
             closeOverlayButton.gameObject.SetActive(true);
 
         UpdateUI();
+    }
+
+    // ==================== 🌱 รูปเมล็ดตามสายพันธุ์ ====================
+    // แปลง species_id เป็น item_id ของเมล็ด (SPEC_MELON -> ITEM_SEED_MELON)
+    // แล้วใช้รูปจาก itemSprites ของกระเป๋าหลัก (ชุดเดียวกับที่โชว์ในกระเป๋า ไม่ต้องลากรูปซ้ำ)
+    // ยกเว้นเชอร์รี่ร่าง 4 ใช้เมล็ดของสายพันธุ์ที่เลือกจาก CherryFormPopup
+    private void UpdateSeedIcon()
+    {
+        if (plantSeedIcon == null)
+        {
+            Transform icon = transform.Find("PlantIcon");
+            if (icon != null) plantSeedIcon = icon.GetComponent<Image>();
+        }
+        if (inventoryManager == null) inventoryManager = FindAnyObjectByType<MainInventoryManager>(FindObjectsInactive.Include);
+        if (plantSeedIcon == null || inventoryManager == null || string.IsNullOrEmpty(plantStatus.speciesId)) return;
+
+        string seedItemId = plantStatus.speciesId.Replace("SPEC_", "ITEM_SEED_");
+        Sprite seedSprite = inventoryManager.GetItemSpriteSmart(seedItemId);
+
+        // 🍒 เชอร์รี่ร่าง 4: ใช้เมล็ดของสายพันธุ์ที่เลือก (LILY / SAKURA / VIOLET) ชุดเดียวกับปุ่ม CherryForm
+        if (plantStatus.IsCherryAtStage4())
+        {
+            CherryFormPopup cherryPopup = plantStatus.cherryFormPopup != null
+                ? plantStatus.cherryFormPopup
+                : FindAnyObjectByType<CherryFormPopup>(FindObjectsInactive.Include);
+            Sprite formSeed = cherryPopup != null ? cherryPopup.GetSeedSpriteForStage(plantStatus.currentStageId) : null;
+            if (formSeed != null) seedSprite = formSeed;
+        }
+
+        if (seedSprite != null) plantSeedIcon.sprite = seedSprite;   // หาไม่เจอ = ใช้รูปเดิมในฉาก
     }
 
     // ฟังก์ชันปิดหน้ารดน้ำ
@@ -135,6 +197,9 @@ public class MainPlantStatusView : MonoBehaviour
         // 2. ชื่อร่างใน Pill ใต้ชื่อพืช (เช่น มะเขือเทศนางฟ้า, หน่อกะทิน้อย)
         if (stageNamePillText != null)
             stageNamePillText.text = plantStatus.GetCurrentStageName();
+
+        // 🌱 รูปเมล็ดด้านซ้ายตามสายพันธุ์ของต้นที่อยู่บนแท่น
+        UpdateSeedIcon();
 
         // 3. หลอดความชุ่มชื้น (สีฟ้า)
         if (moistureFillBar != null)
