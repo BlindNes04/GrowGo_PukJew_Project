@@ -79,21 +79,21 @@ def verify_certificate_text(raw_text: str, max_age_years: int = 1) -> dict:
             "reason": "ไม่สามารถอ่านข้อความจากรูปภาพได้ หรือรูปภาพไม่มีข้อความ"
         }
 
-    # 1. แปลงเลขไทยทั้งหมดในข้อความเป็นเลขอารบิก
+    #แปลงเลขไทยทั้งหมดในข้อความเป็นเลขอารบิก
     normalized_text = thai_digit_to_arabic(raw_text)
 
-    # 2. เงื่อนไขที่ 1: ตรวจสอบว่าเป็นเกียรติบัตรจริงหรือไม่
+    #ตรวจสอบว่าเป็นเกียรติบัตรจริงไหม
     cert_keywords = ["เกียรติบัตร", "วุฒิบัตร" , "รวมใจไทย ปลูกต้นไม้ เพื่อแผ่นดิน"]
     has_cert_keyword = any(kw.lower() in normalized_text.lower() for kw in cert_keywords)
 
     if not has_cert_keyword:
         return {
             "is_valid": False,
-            "reason": "ไม่พบลักษณะข้อความที่เป็นเกียรติบัตรหรือใบประกาศ",
+            "reason": "ไม่พบลักษณะข้อความที่เป็นเกียรติบัตร",
             "extracted_text": normalized_text
         }
 
-    # 3. เงื่อนไขที่ 2: สกัดปี พ.ศ. หรือ ค.ศ.
+    #สกัดปี พ.ศ. หรือ ค.ศ.
     buddhist_years = [int(y) for y in re.findall(r"\b(25\d{2})\b", normalized_text)]
     gregorian_years = [int(y) + 543 for y in re.findall(r"\b(20\d{2})\b", normalized_text)]
     all_years = buddhist_years + gregorian_years
@@ -107,7 +107,7 @@ def verify_certificate_text(raw_text: str, max_age_years: int = 1) -> dict:
 
     cert_year = max(all_years)
 
-    # 4. เงื่อนไขที่ 3: ตรวจสอบอายุเกียรติบัตรเทียบกับปีปัจจุบัน
+    #ตรวจสอบอายุเกียรติบัตรเทียบกับปีปัจจุบัน
     current_year_be = datetime.now().year + 543
     min_allowed_year = current_year_be - max_age_years
 
