@@ -43,15 +43,26 @@ public class MapItemUI : MonoBehaviour
         unlockDateTime = new DateTime(year, month, day, hour, minute, 0);   // ค่าสำรอง ระหว่างรอ DB
     }
 
-    // ทุกครั้งที่การ์ดถูกเปิดขึ้นมา (เปิดหน้าเปลี่ยนแมพ) -> อัปเดตทันที + โหลดอีเวนต์ล่าสุดจาก DB
+    // ทุกครั้งที่การ์ดถูกเปิดขึ้นมา (เปิดหน้าเปลี่ยนแมพ)
+    //   1) แสดงจาก cache อีเวนต์ที่ SupabaseManager โหลดไว้ตั้งแต่หน้าโหลดทันที (ไม่กระพริบ)
+    //   2) แล้วดึง DB ใหม่เงียบๆ ถ้ามีอะไรเปลี่ยนค่อยอัปเดตการ์ด
     void OnEnable()
     {
+        SupabaseManager db = SupabaseManager.Instance;
+        if (db != null && !string.IsNullOrEmpty(db.cachedEventsJson)) ApplyEvents(db.cachedEventsJson);
         UpdateMapStatus();
 
         // ให้ SupabaseManager (อยู่ข้ามฉาก ไม่ถูกปิด) เป็นคนรันการโหลด
         // ถ้าหน้านี้ถูกปิดระหว่างรอ DB จะไม่ error "Coroutine couldn't be started ... inactive"
-        if (!string.IsNullOrEmpty(islandId) && SupabaseManager.Instance != null)
-            SupabaseManager.Instance.StartCoroutine(LoadEventFromDB());
+        if (db != null && !string.IsNullOrEmpty(islandId))
+        {
+            db.StartCoroutine(db.RefreshEventsCache(() =>
+            {
+                if (this == null || string.IsNullOrEmpty(db.cachedEventsJson)) return;   // เปลี่ยนฉากไปแล้ว / โหลดไม่ได้ -> ใช้ค่าเดิม
+                ApplyEvents(db.cachedEventsJson);
+                UpdateMapStatus();
+            }));
+        }
 
         // ตอนโหลดฉาก หน้าเปลี่ยนแมพจะถูกเปิดแล้วซ่อนตัวเองทันที (OnEnable ทำงานตอนการ์ดถูกปิดไปแล้ว)
         // -> ยังไม่ต้องเริ่มตัวนับ รอเปิดหน้าจริงแล้ว OnEnable จะถูกเรียกอีกรอบ
@@ -68,31 +79,29 @@ public class MapItemUI : MonoBehaviour
         }
     }
 
-    // ==================== ดึงอีเวนต์ของเกาะนี้จาก DB ====================
-    // เอาอีเวนต์ที่ยังไม่จบ (end_time > ตอนนี้) และเริ่มเร็วสุด 1 รายการ = รอบปัจจุบัน หรือรอบถัดไป
-    private IEnumerator LoadEventFromDB()
+    // ==================== เลือกอีเวนต์ของเกาะนี้จาก cache ====================
+    // จากทุกแถวในตาราง event: เอาเฉพาะของ islandId ที่ยังไม่จบ (end_time > ตอนนี้) แล้วเลือกที่เริ่มเร็วสุด
+    // = รอบปัจจุบัน หรือรอบถัดไป / ไม่มีเลย = ยังไม่มีอีเวนต์
+    private void ApplyEvents(string json)
     {
-        // ส่งเวลาไทยพร้อม offset +07:00 (%2B = เครื่องหมาย + ใน URL) ใช้ได้ทั้งคอลัมน์แบบมี/ไม่มี timezone
-        string nowThai = ThaiNow().ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture) + "%2B07:00";
-        string query = $"event?select=start_time,end_time&island_id=eq.{islandId}&end_time=gt.{nowThai}&order=start_time.asc&limit=1";
+        List<Dictionary<string, string>> rows;
+        try { rows = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json); }
+        catch { return; }   // อ่านไม่ได้ -> ใช้ค่าเดิม
+        if (rows == null) return;
 
-        yield return SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.GetRest(query, json =>
+        DateTime now = ThaiNow();
+        DateTime? bestStart = null, bestEnd = null;
+        foreach (var row in rows)
         {
-            if (this == null) return;   // เปลี่ยนฉากไประหว่างรอ DB -> การ์ดถูกทำลายแล้ว ไม่ต้องอัปเดต
-            var rows = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json);
-            if (rows == null || rows.Count == 0)
-            {
-                noUpcomingEvent = true;
-            }
-            else
-            {
-                noUpcomingEvent = false;
-                if (TryParseThai(rows[0].GetValueOrDefault("start_time"), out DateTime start)) unlockDateTime = start;
-                endDateTime = TryParseThai(rows[0].GetValueOrDefault("end_time"), out DateTime end) ? end : (DateTime?)null;
-            }
-            UpdateMapStatus();
-        }));
-        // เน็ตหลุด -> GetRest ไม่เรียก onSuccess -> ใช้วันที่ใน Inspector ต่อ
+            if (row.GetValueOrDefault("island_id") != islandId) continue;
+            if (!TryParseThai(row.GetValueOrDefault("start_time"), out DateTime start)) continue;
+            DateTime? end = TryParseThai(row.GetValueOrDefault("end_time"), out DateTime e) ? e : (DateTime?)null;
+            if (end.HasValue && end.Value <= now) continue;   // จบไปแล้ว
+            if (bestStart == null || start < bestStart.Value) { bestStart = start; bestEnd = end; }
+        }
+
+        noUpcomingEvent = bestStart == null;
+        if (bestStart != null) { unlockDateTime = bestStart.Value; endDateTime = bestEnd; }
     }
 
     // ==================== อัปเดตการ์ดตามเวลาไทย ====================

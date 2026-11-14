@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 // หลอดโหลดแสดงงานที่โหลดอยู่จริง 2 ส่วน:
 //   1) โหลดฉาก MainMenu เบื้องหลัง (LoadSceneAsync)
 //   2) ถ้าเคยล็อกอินค้างไว้ -> ดึงข้อมูลผู้เล่นจาก Supabase เก็บ cache (SupabaseManager.PreloadAll)
+//      + อีเวนต์เกาะตามฤดูกาล (ตาราง event) สำหรับหน้าเปลี่ยนแมพ
 //      ข้อมูลพร้อมตั้งแต่หน้าโหลด เข้า MainMenu / MainForest แล้วไม่ต้องรอโหลดหรือเห็นค่ากระพริบ
 // ทั้งสองส่วนเสร็จแล้วค่อยเปลี่ยนไปฉาก MainMenu
 public class LoadingManager : MonoBehaviour
@@ -51,7 +52,7 @@ public class LoadingManager : MonoBehaviour
 
             // ไม่มีผู้เล่นค้างไว้ = ไม่มีข้อมูลต้องโหลด
             float dataProgress = hasUser ? db.preloadProgress : 1f;
-            bool dataReady = !hasUser || !db.IsPreloading;
+            bool dataReady = (!hasUser || !db.IsPreloading) && db.EventsLoaded;   // 📅 รออีเวนต์เกาะด้วย (ตารางเล็ก ใช้เวลาน้อยมาก)
 
             // หลอด = ค่าจริงของงานที่โหลดอยู่ (ไม่ทำให้นุ่ม จะได้เห็นว่าขยับตามงานจริง)
             float progress = hasUser ? sceneProgress * sceneShare + dataProgress * (1f - sceneShare) : sceneProgress;

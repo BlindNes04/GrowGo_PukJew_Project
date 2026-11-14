@@ -32,6 +32,21 @@ public class ShopItemSlot : MonoBehaviour
         if (iconImage != null && icon != null) iconImage.sprite = icon;
         if (currencyIcon != null && currency != null) currencyIcon.sprite = currency;
 
+        FitPriceWidth();
+    }
+
+    // ---------- ราคาไม่ทับไอคอน ----------
+    // ช่องราคาอยู่ใน PointContainer (Horizontal Layout Group ที่ไม่ได้คุมความกว้างลูก) ความกว้างเลยตายตัว
+    // ราคา 3 หลัก หรือฟอนต์บน iPhone กว้างกว่าใน Editor -> ตัวเลขล้นไปทับไอคอนแต้ม
+    // แก้: ตั้งความกว้างช่องราคา = ความกว้างจริงของตัวเลข แล้วสั่งจัดเรียงกล่องใหม่ ไอคอนจะขยับตามเอง
+    public void FitPriceWidth()
+    {
+        if (priceText == null) return;
+        priceText.ForceMeshUpdate();
+        RectTransform rt = priceText.rectTransform;
+        rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, priceText.preferredWidth);
+        if (rt.parent is RectTransform container) LayoutRebuilder.ForceRebuildLayoutImmediate(container);
+
         if (buyButton != null)
         {
             buyButton.onClick.RemoveAllListeners();

@@ -153,6 +153,7 @@ public class PlantStoreController : MonoBehaviour
             // 🐻 หมี: โชว์ราคาเมล็ดหลังลด
             int bearDiscount = GetBearDiscount(item);
             if (bearDiscount > 0 && slot.priceText != null) slot.priceText.text = $"{item.price_amount - bearDiscount} (-{Mathf.RoundToInt(BuffManager.Instance.activeBuddySkillValue * 100)}%)";
+            if (bearDiscount > 0) slot.FitPriceWidth();   // ราคาหลังลดยาวขึ้น -> ขยายช่องราคาไม่ให้ทับไอคอน
             spawnedSlots.Add(slot);
         }
         // ถ้าใช้ ShopItemSlot ที่วางไว้ใน Content เป็นต้นแบบ (ไม่ได้ทำเป็น prefab) ให้ซ่อนตัวต้นแบบไว้

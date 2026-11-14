@@ -80,11 +80,30 @@ public class SupabaseManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
 
             LoadSavedSession();
+            StartCoroutine(RefreshEventsCache());   // 📅 อีเวนต์เกาะตามฤดูกาล (ไม่ขึ้นกับผู้เล่น) โหลดตั้งแต่หน้าโหลด
         }
         else
         {
             Destroy(gameObject);   // มีตัวหลักจากฉากก่อนอยู่แล้ว -> ลบตัวที่ติดมากับฉากนี้
         }
+    }
+
+    // ==================== 📅 Cache ตาราง event (เกาะที่เปิดตามช่วงเวลา เช่น ดินแดนหมอก) ====================
+    // โหลดทุกแถวครั้งเดียวตอนเปิดเกม (ตารางเล็ก) -> หน้าเปลี่ยนแมพแสดงสถานะเปิด/ปิดได้ทันที ไม่กระพริบ
+    // แล้วหน้าเปลี่ยนแมพค่อยเรียก RefreshEventsCache อีกรอบเงียบๆ เพื่ออัปเดตค่าล่าสุด
+    [HideInInspector] public string cachedEventsJson = null;
+    public bool EventsLoaded { get; private set; } = false;   // โหลดเสร็จแล้ว (สำเร็จหรือไม่ก็ตาม) หน้าโหลดใช้รอ
+    private bool isRefreshingEvents = false;
+
+    public IEnumerator RefreshEventsCache(Action onDone = null)
+    {
+        if (isRefreshingEvents) { onDone?.Invoke(); yield break; }   // กำลังโหลดอยู่ ไม่ยิงซ้ำ
+        isRefreshingEvents = true;
+        yield return StartCoroutine(GetRest("event?select=event_id,island_id,start_time,end_time&order=start_time.asc",
+            json => cachedEventsJson = json));
+        isRefreshingEvents = false;
+        EventsLoaded = true;
+        onDone?.Invoke();
     }
 
     private void LoadSavedSession()

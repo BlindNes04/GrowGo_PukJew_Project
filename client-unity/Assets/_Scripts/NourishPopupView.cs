@@ -60,6 +60,7 @@ public class NourishPopupView : MonoBehaviour
         string cachedJson = SupabaseManager.Instance.GetCachedInventory();
         if (!string.IsNullOrEmpty(cachedJson)) ParseAndRenderNourishSlots(cachedJson);
 
+        if (!isActiveAndEnabled) return;   // หน้าปิดอยู่ -> ไม่ดึง DB (เปิดหน้าครั้งหน้า OnEnable ดึงให้เอง)
         StartCoroutine(SupabaseManager.Instance.GetUserInventory(
             onSuccess: (json) =>
             {
@@ -236,13 +237,15 @@ public class NourishPopupView : MonoBehaviour
         selectedItem.quantity = newQuantity;
 
         // 🌐 3. ยิงอัปเดตลง Supabase (PATCH)
+        //    ให้ SupabaseManager (อยู่ข้ามฉาก ไม่ถูกปิด) เป็นคนรัน เพราะหน้านี้จะปิดตัวเองทันทีในข้อ 4
+        //    ถ้ารันบนหน้านี้ การบันทึกจะหยุดกลางทาง และขึ้น error "Coroutine couldn't be started ... inactive"
         if (SupabaseManager.Instance != null)
         {
-            StartCoroutine(SupabaseManager.Instance.UpdateItemQuantity(targetItemId, newQuantity, 
+            SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.UpdateItemQuantity(targetItemId, newQuantity,
                 onSuccess: () =>
                 {
                     Debug.Log($"[Nourish] ตัดจำนวน {targetItemId} ใน DB เหลือ {newQuantity} สำเร็จ");
-                    FetchNourishItemsAndRender();
+                    if (this != null && isActiveAndEnabled) FetchNourishItemsAndRender();   // ปิดอยู่ -> เปิดครั้งหน้าโหลดใหม่เองใน OnEnable
                 },
                 onError: (err) =>
                 {
