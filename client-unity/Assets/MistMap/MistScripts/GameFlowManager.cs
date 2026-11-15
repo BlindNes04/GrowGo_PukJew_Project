@@ -30,7 +30,6 @@ public class GameFlowManager : MonoBehaviour
     public float quoteFadeDuration = 0.8f; 
 
     [Header("Stamina Settings")]
-    public int maxStamina = 30;
     public int searchCost = 10;
     public TextMeshProUGUI staminaText;  
 
@@ -89,18 +88,16 @@ public class GameFlowManager : MonoBehaviour
     public async void OnClickStartSearch()
     {
         if (isProcessing) return;
+
+        if (StaminaManager.Instance == null)
+        {
+            Debug.LogError("ไม่พบ StaminaManager");
+            return;
+        }
+
         isProcessing = true;
 
-        bool isSuccess = false;
-        if (StaminaManager.Instance != null)
-        {
-            isSuccess = await StaminaManager.Instance.ConsumeStaminaAsync(searchCost);
-        }
-        else
-        {
-            isSuccess = (currentStamina >= searchCost);
-            if (isSuccess) currentStamina -= searchCost;
-        }
+        bool isSuccess = await StaminaManager.Instance.ConsumeStaminaAsync(searchCost);
 
         UpdateStaminaUI();
 
@@ -211,10 +208,9 @@ public class GameFlowManager : MonoBehaviour
 
     void UpdateStaminaUI()
     {
-        if (staminaText != null)
+        if (staminaText != null && StaminaManager.Instance != null)
         {
-            int displayStamina = StaminaManager.Instance != null ? StaminaManager.Instance.CurrentStamina : currentStamina;
-            staminaText.text = displayStamina.ToString();
+            staminaText.text = StaminaManager.Instance.CurrentStamina.ToString();
         }
     }
 }
