@@ -15,40 +15,50 @@ def extract_text_from_image(image_path, api_key, model, task_type, max_tokens, t
             'repetition_penalty': str(repetition_penalty)
         }
 
+        #กรณีเป็นpdf
         if pages:
             data['pages'] = json.dumps(pages)
-
+            
+        #api
         headers = {
             'Authorization': f'Bearer {api_key}'
         }
 
+        #http post
         response = requests.post(url, files=files, data=data, headers=headers)
 
+        #รับ json แปลงเป็น text
         if response.status_code == 200:
             result = response.json()
 
-            # Extract text from successful results
+            #สร้างลิสต์เก็บข้อความ
             extracted_texts = []
             for page_result in result.get('results', []):
                 if page_result.get('success') and page_result.get('message'):
                     content = page_result['message']['choices'][0]['message']['content']
+
+                    #ระบบกันบัค ( แปลงjson ข้างในให้เป็น text )
                     try:
-                        # Try to parse as JSON if it's structured output
+                        # ดึงข้อความจาก natural text
                         parsed_content = json.loads(content)
                         text = parsed_content.get('natural_text', content)
+                        
                     except json.JSONDecodeError:
                         text = content
+                        
                     extracted_texts.append(text)
+                    
                 elif not page_result.get('success'):
                     print(f"Error processing {page_result.get('filename', 'unknown')}: {page_result.get('error', 'Unknown error')}")
 
+            # list to str
             return '\n'.join(extracted_texts)
         else:
             print(f"Error: {response.status_code}")
             print(response.text)
             return None
 
-# Usage
+# เรียกใช้งาน
 api_key = "sk-eOYhgdCMhrr6dK0tHqbTIIUJoOdkZlBvbZjGlByoO82LImTP"  #api typhoonOCR ที่ดึงมาใช้
 image_path = "./วุฒิบัตร.png"  # or path/to/your/document.pdf
 model = "typhoon-ocr"
@@ -93,7 +103,7 @@ def verify_certificate_text(raw_text: str, max_age_years: int = 1) -> dict:
             "extracted_text": normalized_text
         }
 
-    #สกัดปี พ.ศ. หรือ ค.ศ.
+    #พ.ศ. หรือ ค.ศ.
     buddhist_years = [int(y) for y in re.findall(r"\b(25\d{2})\b", normalized_text)]
     gregorian_years = [int(y) + 543 for y in re.findall(r"\b(20\d{2})\b", normalized_text)]
     all_years = buddhist_years + gregorian_years
