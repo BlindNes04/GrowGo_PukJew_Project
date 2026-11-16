@@ -33,6 +33,8 @@ def extract_text_from_image(image_path, api_key, model, task_type, max_tokens, t
 
             #สร้างลิสต์เก็บข้อความ
             extracted_texts = []
+            
+            #วนลูปเปิด List เพื่อหยิบข้อมูลออกมาอ่านทีละหน้า
             for page_result in result.get('results', []):
                 if page_result.get('success') and page_result.get('message'):
                     content = page_result['message']['choices'][0]['message']['content']
@@ -136,7 +138,7 @@ def verify_certificate_text(raw_text: str, max_age_years: int = 1) -> dict:
     }
 
 # ตรวจสอบตัวแปร extracted_text จากเซลล์ก่อนหน้า
-if 'extracted_text' in globals() and extracted_text:
+if extracted_text:
     verification_result = verify_certificate_text(extracted_text, max_age_years=1)
     print("\n" + " สรุปผลการตรวจ " )
     print("สถานะผ่านเกณฑ์:", "ผ่าน" if verification_result["is_valid"] else "ไม่ผ่าน")
