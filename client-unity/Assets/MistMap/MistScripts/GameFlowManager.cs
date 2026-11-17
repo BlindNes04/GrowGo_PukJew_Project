@@ -9,30 +9,29 @@ public class GameFlowManager : MonoBehaviour
     public static GameFlowManager Instance { get; private set; }
 
     [Header("UI Panels")]
-    public GameObject startComponent;     
-    public GameObject searchComponent;    
-    public GameObject rewardComponent;    
+    public GameObject startComponent;
+    public GameObject searchComponent;
+    public GameObject rewardComponent;
 
     [Header("Banner Floating Effect")]
-    public RectTransform startBanner; 
-    public float floatSpeed = 2f;     
+    public RectTransform startBanner;
+    public float floatSpeed = 2f;
     public float floatAmplitude = 3f;
 
     [Header("Error Popup Settings")]
-    public Image errorImage;              
-    public float showDuration = 1.5f;    
-    public float fadeDuration = 0.5f;    
+    public Image errorImage;
+    public float showDuration = 1.5f;
+    public float fadeDuration = 0.5f;
 
     [Header("Search Quote Settings")]
-    public Image quoteImage;              
-    public float quoteStartDelay = 0.5f;   
-    public float quoteShowDuration = 2f;   
-    public float quoteFadeDuration = 0.8f; 
+    public Image quoteImage;
+    public float quoteStartDelay = 0.5f;
+    public float quoteShowDuration = 2f;
+    public float quoteFadeDuration = 0.8f;
 
     [Header("Stamina Settings")]
-    public int maxStamina = 30;
     public int searchCost = 10;
-    public TextMeshProUGUI staminaText;  
+    public TextMeshProUGUI staminaText;
 
     private int currentStamina;
     private Coroutine errorCoroutine;
@@ -57,7 +56,7 @@ public class GameFlowManager : MonoBehaviour
         {
             await StaminaManager.Instance.FetchStaminaAsync();
         }
-        
+
         UpdateStaminaUI();
 
         if (startComponent != null) startComponent.SetActive(true);
@@ -89,18 +88,16 @@ public class GameFlowManager : MonoBehaviour
     public async void OnClickStartSearch()
     {
         if (isProcessing) return;
+
+        if (StaminaManager.Instance == null)
+        {
+            Debug.LogError("ไม่พบ StaminaManager");
+            return;
+        }
+
         isProcessing = true;
 
-        bool isSuccess = false;
-        if (StaminaManager.Instance != null)
-        {
-            isSuccess = await StaminaManager.Instance.ConsumeStaminaAsync(searchCost);
-        }
-        else
-        {
-            isSuccess = (currentStamina >= searchCost);
-            if (isSuccess) currentStamina -= searchCost;
-        }
+        bool isSuccess = await StaminaManager.Instance.ConsumeStaminaAsync(searchCost);
 
         UpdateStaminaUI();
 
@@ -211,10 +208,9 @@ public class GameFlowManager : MonoBehaviour
 
     void UpdateStaminaUI()
     {
-        if (staminaText != null)
+        if (staminaText != null && StaminaManager.Instance != null)
         {
-            int displayStamina = StaminaManager.Instance != null ? StaminaManager.Instance.CurrentStamina : currentStamina;
-            staminaText.text = displayStamina.ToString();
+            staminaText.text = StaminaManager.Instance.CurrentStamina.ToString();
         }
     }
 }

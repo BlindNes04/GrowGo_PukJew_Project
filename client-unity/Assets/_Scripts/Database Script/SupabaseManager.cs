@@ -1771,6 +1771,7 @@ public class SupabaseManager : MonoBehaviour
         string userId = GetActiveUserId();
         if (string.IsNullOrEmpty(userId)) yield break;
 
+        // เตรียมข้อมูล
         var payload = new Dictionary<string, object>
         {
             { "level", playerLevel },
@@ -1783,7 +1784,10 @@ public class SupabaseManager : MonoBehaviour
         {
             request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonBody));
             request.downloadHandler = new DownloadHandlerBuffer();
+
+            // ใส่ header ยืนยันตัวตน
             SetSupabaseHeaders(request);
+
             request.SetRequestHeader("Prefer", "return=minimal");
             yield return request.SendWebRequest();
 

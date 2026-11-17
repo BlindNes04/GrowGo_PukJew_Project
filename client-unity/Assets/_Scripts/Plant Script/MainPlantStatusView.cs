@@ -83,7 +83,7 @@ public class MainPlantStatusView : MonoBehaviour
         }
     }
 
-    // ==================== 👆 แตะนอกหน้าสเตตัส = ปิด ====================
+    // ==================== แตะนอกหน้าสเตตัส = ปิด ====================
     // แตะตรงไหนก็ได้นอกกรอบหน้านี้ (รวมปุ่มอื่น เช่น กระเป๋า ร้านค้า เมนู) -> ปิดหน้านี้ก่อน แล้วปุ่มนั้นทำงานต่อตามปกติ
     // หน้าต่างเลยไม่ซ้อนกัน (แตะที่ว่างผ่าน CloseOverlay ก็ยังปิดได้เหมือนเดิม)
     // ยกเว้นตอนป๊อปอัปที่เปิดจากหน้านี้ยังเปิดอยู่ (บำรุง / เปลี่ยนชื่อ / แจ้งพืชป่วย) ให้ป๊อปอัปนั้นจัดการเอง
@@ -129,7 +129,7 @@ public class MainPlantStatusView : MonoBehaviour
         UpdateUI();
     }
 
-    // ==================== 🌱 รูปเมล็ดตามสายพันธุ์ ====================
+    // ==================== รูปเมล็ดตามสายพันธุ์ ====================
     // แปลง species_id เป็น item_id ของเมล็ด (SPEC_MELON -> ITEM_SEED_MELON)
     // แล้วใช้รูปจาก itemSprites ของกระเป๋าหลัก (ชุดเดียวกับที่โชว์ในกระเป๋า ไม่ต้องลากรูปซ้ำ)
     // ยกเว้นเชอร์รี่ร่าง 4 ใช้เมล็ดของสายพันธุ์ที่เลือกจาก CherryFormPopup
@@ -146,7 +146,7 @@ public class MainPlantStatusView : MonoBehaviour
         string seedItemId = plantStatus.speciesId.Replace("SPEC_", "ITEM_SEED_");
         Sprite seedSprite = inventoryManager.GetItemSpriteSmart(seedItemId);
 
-        // 🍒 เชอร์รี่ร่าง 4: ใช้เมล็ดของสายพันธุ์ที่เลือก (LILY / SAKURA / VIOLET) ชุดเดียวกับปุ่ม CherryForm
+        // เชอร์รี่ร่าง 4: ใช้เมล็ดของสายพันธุ์ที่เลือก (LILY / SAKURA / VIOLET) ชุดเดียวกับปุ่ม CherryForm
         if (plantStatus.IsCherryAtStage4())
         {
             CherryFormPopup cherryPopup = plantStatus.cherryFormPopup != null

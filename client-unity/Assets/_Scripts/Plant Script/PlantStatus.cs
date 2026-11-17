@@ -116,7 +116,7 @@ public class PlantStatus : MonoBehaviour
     [HideInInspector] public List<SupabasePlantStage> masterStagesList = new List<SupabasePlantStage>();
     [HideInInspector] public List<SupabaseEvolutionRule> masterRulesList = new List<SupabaseEvolutionRule>();
 
-    // 🍒 Cherry: ค่าคงที่ + ตัวอ้างอิง popup เปลี่ยนสายพันธุ์ (ถ้าไม่ลากใส่ จะหาเองตอนเริ่ม)
+    // Cherry: ค่าคงที่ + ตัวอ้างอิง popup เปลี่ยนสายพันธุ์ (ถ้าไม่ลากใส่ จะหาเองตอนเริ่ม)
     private const string CHERRY_SPECIES_ID = "SPEC_CHERRY";
     private const string CHERRY_DEFAULT_EVO_STAGE = "STAGE_CH_EVO_LILY";
     [Header("🍒 Cherry")]
@@ -125,10 +125,10 @@ public class PlantStatus : MonoBehaviour
     void Awake()
     {
         LoadData();
-        LoadFromCache();   // 📦 มี cache จาก SupabaseManager -> ใช้ค่าจริงทันที (ไม่ต้องเห็นค่า default ก่อน DB ตอบ)
+        LoadFromCache();   // มี cache จาก SupabaseManager -> ใช้ค่าจริงทันที (ไม่ต้องเห็นค่า default ก่อน DB ตอบ)
     }
 
-    // ==================== 📦 โหลดจาก Cache ====================
+    // ==================== Fcโหลดจาก Cache ====================
     // ใช้ข้อมูล player_plant + ข้อมูลกลางของพืชที่ SupabaseManager จำไว้ตอนล็อกอิน ตั้งค่าได้ทันทีตอนเปิดฉาก
     // (หลอด/ชื่อร่างไม่กระโดดจากค่า default) จากนั้น Start จะโหลดจาก DB อีกรอบเพื่ออัปเดตค่าล่าสุด
     public bool LoadFromCache()
@@ -403,7 +403,7 @@ public class PlantStatus : MonoBehaviour
         }
         else
         {
-            // ⚖️ ค่าสำรองตอนยังไม่มีข้อมูลจาก DB (ตัวเลขเดียวกับตาราง evolution_stage)
+            // ค่าสำรองตอนยังไม่มีข้อมูลจาก DB (ตัวเลขเดียวกับตาราง evolution_stage)
             if (speciesId == "SPEC_TOMATO") maxNutrients = currentStageLevel == 1 ? 300f : (currentStageLevel == 2 ? 400f : 650f);
             else if (speciesId == "SPEC_COCONUT") maxNutrients = currentStageLevel == 1 ? 400f : (currentStageLevel == 2 ? 500f : 850f);
             else if (speciesId == "SPEC_MELON") maxNutrients = currentStageLevel == 1 ? 650f : (currentStageLevel == 2 ? 1050f : 1400f);
@@ -516,8 +516,8 @@ public class PlantStatus : MonoBehaviour
         SaveData();
         SyncCharacterVisual();
 
-        // ⭐ ต้นไม้ขึ้นสเตจ -> ผู้เล่นได้ EXP โบนัส
-        // 🦫 บีเวอร์ LEVELUP_BONUS_POINTS: ต้นไม้ขึ้นร่าง (อัปเลเวล) -> ได้แต้มดอกไม้เพิ่ม (ค่าในตาราง buddy = 30)
+        // ต้นไม้ขึ้นสเตจ -> ผู้เล่นได้ EXP โบนัส
+        // บีเวอร์ LEVELUP_BONUS_POINTS: ต้นไม้ขึ้นร่าง (อัปเลเวล) -> ได้แต้มดอกไม้เพิ่ม (ค่าในตาราง buddy = 30)
         int beaverFlower = (activeBuddySkillType == "LEVELUP_BONUS_POINTS") ? Mathf.RoundToInt(activeBuddySkillValue) : 0;
         if (SupabaseManager.Instance != null) SupabaseManager.Instance.AddPlayerExpAndFlower(expFromStageUp, beaverFlower);
         if (beaverFlower > 0 && AlertPopupManager.Instance != null) AlertPopupManager.Instance.ShowAlerts(flower: beaverFlower);
@@ -531,7 +531,7 @@ public class PlantStatus : MonoBehaviour
 
     private void EvaluateStage4EvolutionRules()
     {
-        // ── 🍒 Cherry: ไม่ใช้ evolution_rule (ไม่เช็กความสัมพันธ์) ──
+        // ── Cherry: ไม่ใช้ evolution_rule (ไม่เช็กความสัมพันธ์) ──
         // ถึงขั้น 4 แล้วเป็นร่าง LILY ก่อนเสมอ ผู้เล่นค่อยไปเปลี่ยนเป็น SAKURA/VIOLET เองในหน้า popup สายพันธุ์
         if (speciesId == CHERRY_SPECIES_ID)
         {
@@ -545,7 +545,7 @@ public class PlantStatus : MonoBehaviour
         // (stage_id ใช้ตัวย่อ เช่น STAGE_TM_ จึงเทียบจากชื่อพืชตรงๆ ไม่ได้)
         List<SupabaseEvolutionRule> speciesRules = masterRulesList.FindAll(r => masterStagesList.Exists(s => s.stage_id == r.stage_id && s.species_id == speciesId));
 
-        // ==================== 🦎 กิ้งก่า SPECIAL_EVO_CHANCE: โอกาสได้ร่างพิเศษ ====================
+        // ==================== กิ้งก่า SPECIAL_EVO_CHANCE: โอกาสได้ร่างพิเศษ ====================
         // ตอนขึ้นร่าง 4 มีโอกาส 5% (ค่าในตาราง buddy) ได้ร่างดีเสมอ แม้หัวใจไม่ถึง 80
         // สุ่มครั้งเดียวตอนขึ้นร่าง (ฟังก์ชันนี้ถูกเรียกครั้งเดียวต่อการวิวัฒนาการ) สุ่มใหม่ไม่ได้
         if (activeBuddySkillType == "SPECIAL_EVO_CHANCE")
@@ -614,7 +614,7 @@ public class PlantStatus : MonoBehaviour
         return true;
     }
 
-    // ==================== 💧 รดน้ำ ====================
+    // ==================== รดน้ำ ====================
     public void WaterPlant()
     {
         // ---------- โอกาสป่วยจากฝนตก/พายุ (weather.water_damage_chance) ----------
@@ -640,14 +640,14 @@ public class PlantStatus : MonoBehaviour
 
         lastWateredAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         currentMoisture = maxMoisture;
-        StartWaterPool();   // 💧 รดน้ำ = ได้สารอาหารก้อนใหม่ ค่อยๆ ดูดเข้าหลอดใน 10 นาที
+        StartWaterPool();   // รดน้ำ = ได้สารอาหารก้อนใหม่ ค่อยๆ ดูดเข้าหลอดใน 10 นาที
 
-        // ---------- 🐹 แฮมสเตอร์ WATER_SHIELD_CHANCE: รดน้ำแล้วมีโอกาสได้เกราะ +1 (ค่าในตาราง buddy = 0.35) ----------
+        // ---------- แฮมสเตอร์ WATER_SHIELD_CHANCE: รดน้ำแล้วมีโอกาสได้เกราะ +1 (ค่าในตาราง buddy = 0.35) ----------
         // เติมได้ถึง hamsterShieldCap ชั้นเท่านั้น (เกราะจากยา CURE ไม่ติดเพดานนี้) กันเกราะสะสมจนต้นไม่มีวันป่วย
         if (activeBuddySkillType == "WATER_SHIELD_CHANCE" && immunityShields < hamsterShieldCap && UnityEngine.Random.value <= activeBuddySkillValue)
         {
             immunityShields++;
-            Debug.Log($"[PlantStatus] 🐹 แฮมสเตอร์ให้เกราะ +1 (มี {immunityShields} ชั้น)");
+            Debug.Log($"[PlantStatus] s แฮมสเตอร์ให้เกราะ +1 (มี {immunityShields} ชั้น)");
             BuddyDisplayManager buddy = FindAnyObjectByType<BuddyDisplayManager>();
             if (buddy != null) buddy.ShowBuddyMessage("🐹 แฮมสเตอร์ให้เกราะกันป่วย +1");
         }
@@ -665,14 +665,14 @@ public class PlantStatus : MonoBehaviour
             : Mathf.RoundToInt(baseExp * weatherExpMult);
 
         int finalCoins = Mathf.RoundToInt(baseCoinsFromWater * coinMultiplier);
-        // 🦦 นาก WATER_POINTS_BURST: กดรดน้ำได้แต้มดอกไม้เพิ่ม (ค่าในตาราง buddy = 3)
+        // นาก WATER_POINTS_BURST: กดรดน้ำได้แต้มดอกไม้เพิ่ม (ค่าในตาราง buddy = 3)
         if (activeBuddySkillType == "WATER_POINTS_BURST") finalCoins += Mathf.RoundToInt(activeBuddySkillValue);
-        int finalRelationship = Mathf.RoundToInt(baseRelationshipFromWater * relationshipMultiplier * GetWeatherRelationshipMultiplier());   // 🌫️ วันหมอก x1.1
+        int finalRelationship = Mathf.RoundToInt(baseRelationshipFromWater * relationshipMultiplier * GetWeatherRelationshipMultiplier());   // วันหมอก x1.1
 
         playerEXP += finalExp;
         flowerCoins += finalCoins;
 
-        // ⭐ บันทึก EXP ผู้เล่น + แต้มดอกไม้ ลงตาราง user (คิดเลเวลใน SupabaseManager)
+        // บันทึก EXP ผู้เล่น + แต้มดอกไม้ ลงตาราง user (คิดเลเวลใน SupabaseManager)
         if (SupabaseManager.Instance != null) SupabaseManager.Instance.AddPlayerExpAndFlower(finalExp, finalCoins);
         finalRelationship = AddRelationship(finalRelationship, fromItem: false);   // ❤️ ไม่เกินเพดานหัวใจรวม (น้ำไม่นับโควตารายวัน)
 
@@ -709,7 +709,7 @@ public class PlantStatus : MonoBehaviour
         }
     }
 
-    // ==================== 💧 หลอดความชุ่มชื้น + ป่วยจากแดด ====================
+    // ==================== หลอดความชุ่มชื้น + ป่วยจากแดด ====================
     private float nextHeatCheckTime = 0f;   // เวลาที่จะสุ่มป่วยจากแดดรอบถัดไป (สุ่มทุก 10 นาที ไม่ใช่ทุกเฟรม)
 
     // 🤝 เยี่ยมสวนเพื่อน: คืนเวลารดน้ำล่าสุดสำหรับคิดหลอดความชุ่มชื้น
@@ -1343,7 +1343,7 @@ public class PlantStatus : MonoBehaviour
         PlayerPrefs.SetString("Plant_LastWateredAt", lastWateredAt);
         PlayerPrefs.SetString("Plant_PlantedAt", plantedAt);
         PlayerPrefs.SetString("Plant_BuddySkillType", activeBuddySkillType);
-        PlayerPrefs.SetFloat("PLant_BuddySkillValue", activeBuddySkillValue);
+        PlayerPrefs.SetFloat("Plant_BuddySkillValue", activeBuddySkillValue);
         // ⚖️ ระบบสมดุลใหม่
         PlayerPrefs.SetInt("Plant_WaterPoolTotal", waterPoolTotal);
         PlayerPrefs.SetInt("Plant_WaterPoolAbsorbed", waterPoolAbsorbed);

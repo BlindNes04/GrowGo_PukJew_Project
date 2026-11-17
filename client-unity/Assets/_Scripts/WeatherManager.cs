@@ -40,8 +40,8 @@ public class WeatherManager : MonoBehaviour
         }
         else
         {
-            // 🔁 กลับเข้า MainForest อีกรอบ: ตัวจริง (DontDestroyOnLoad) ยังถือ Background ของซีนเก่าที่ถูกทำลายไปแล้ว
-            //    เลยส่ง Background ของซีนใหม่ให้ตัวจริง แล้วคำนวณ/เปลี่ยนรูปตามสภาพอากาศวันนี้ใหม่ ก่อนทำลายตัวซ้ำทิ้ง
+            //  กลับเข้า MainForest อีกรอบ: ตัวจริง (DontDestroyOnLoad) ยังถือ Background ของซีนเก่าที่ถูกทำลายไปแล้ว
+            //  เลยส่ง Background ของซีนใหม่ให้ตัวจริง แล้วคำนวณ/เปลี่ยนรูปตามสภาพอากาศวันนี้ใหม่ ก่อนทำลายตัวซ้ำทิ้ง
             if (backgroundDisplayImage != null)
                 Instance.backgroundDisplayImage = backgroundDisplayImage;
             Instance.UpdateWeeklyWeather();
@@ -50,7 +50,7 @@ public class WeatherManager : MonoBehaviour
         }
     }
 
-    // 🕛 เวลาไทย (UTC+7) ให้วันเปลี่ยนตอนเที่ยงคืนไทย เหมือน stamina / daily reward / popup นับถอยหลัง
+    // เวลาไทย (UTC+7) ให้วันเปลี่ยนตอนเที่ยงคืนไทย เหมือน stamina / daily reward / popup นับถอยหลัง
     public static DateTime GetThaiNow()
     {
         return DateTime.UtcNow.AddHours(7);
@@ -61,7 +61,7 @@ public class WeatherManager : MonoBehaviour
         FetchWeatherAndInit();
     }
 
-    // 🕛 เปิดเกมค้างข้ามเที่ยงคืน (เวลาไทย) -> คำนวณอากาศวันใหม่ + เปลี่ยนพื้นหลัง + อัปเดต UI ต้นไม้
+    // เปิดเกมค้างข้ามเที่ยงคืน (เวลาไทย) -> คำนวณอากาศวันใหม่ + เปลี่ยนพื้นหลัง + อัปเดต UI ต้นไม้
     private void Update()
     {
         if (lastWeatherDate == DateTime.MinValue) return;   // ยังโหลดอากาศครั้งแรกไม่เสร็จ
@@ -123,13 +123,13 @@ public class WeatherManager : MonoBehaviour
 
         DateTime nowUtc = GetThaiNow();   // เวลาไทย (ชื่อตัวแปร nowUtc เป็นชื่อเก่า)
 
-        // 🟢 คำนวณ Day Index (จันทร์ = 0, ..., เสาร์ = 5, อาทิตย์ = 6)
+        // คำนวณ Day Index (จันทร์ = 0, ..., เสาร์ = 5, อาทิตย์ = 6)
         currentDayIndex = ((int)nowUtc.DayOfWeek + 6) % 7;
         currentDayName = nowUtc.DayOfWeek.ToString();
 
         DateTime mondayOfWeek = nowUtc.Date.AddDays(-currentDayIndex);
 
-        // 🎲 สุ่มสร้างตาราง 7 วันด้วย UTC Seed
+        // สุ่มสร้างตาราง 7 วันด้วย UTC Seed
         GenerateScheduleFromUtcSeed(mondayOfWeek);
 
         currentWeather = weeklyWeatherSchedule[currentDayIndex];
@@ -140,7 +140,7 @@ public class WeatherManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 🟢 ฟังก์ชันสำหรับสคริปต์อื่น (เช่น WeatherPopupController) มาเรียกดูสภาพอากาศประจำวัน
+    /// ฟังก์ชันสำหรับสคริปต์อื่น (เช่น WeatherPopupController) มาเรียกดูสภาพอากาศประจำวัน
     /// </summary>
     public SupabaseWeather GetWeatherForDayIndex(int dayIndex)
     {
@@ -152,7 +152,7 @@ public class WeatherManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 🔮 ดูอากาศของ "อีก N วันข้างหน้า" ข้ามไปสัปดาห์หน้าได้
+    /// ดูอากาศของ "อีก N วันข้างหน้า" ข้ามไปสัปดาห์หน้าได้
     /// (ใช้แทน GetWeatherForDayIndex ที่วน % 7 แล้วปลายสัปดาห์จะไปได้วันต้นสัปดาห์นี้ที่ผ่านไปแล้ว)
     /// </summary>
     public SupabaseWeather GetWeatherForDaysAhead(int daysAhead)
@@ -172,7 +172,7 @@ public class WeatherManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 🎲 Clear เป็น Default (ปกติ 4 วัน) สุ่มวันพิเศษใส่ 3 วัน
+    /// Clear เป็น Default (ปกติ 4 วัน) สุ่มวันพิเศษใส่ 3 วัน
     /// </summary>
     private void GenerateScheduleFromUtcSeed(DateTime mondayUtcDate)
     {
@@ -218,7 +218,7 @@ public class WeatherManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 🎨 เปลี่ยนภาพ Background ตาม weather_id ทั้ง 5 แบบ
+    /// เปลี่ยนภาพ Background ตาม weather_id ทั้ง 5 แบบ
     /// </summary>
     public void ApplyWeatherVisuals()
     {
@@ -251,10 +251,10 @@ public class WeatherManager : MonoBehaviour
         }
     }
 
-    // ==================== 🧪 TEST & INSPECTOR BUTTONS ====================
+    // ==================== TEST & INSPECTOR BUTTONS ====================
 
     /// <summary>
-    /// 🧪 กดเปลี่ยนสภาพอากาศเพื่อทดสอบใน Editor (พิมพ์ weather_id ในช่อง testWeatherId แล้วกดปุ่มนี้)
+    /// กดเปลี่ยนสภาพอากาศเพื่อทดสอบใน Editor (พิมพ์ weather_id ในช่อง testWeatherId แล้วกดปุ่มนี้)
     /// </summary>
     public void ApplyTestWeather()
     {
