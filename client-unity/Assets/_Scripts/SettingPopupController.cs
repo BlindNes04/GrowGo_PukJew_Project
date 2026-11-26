@@ -46,6 +46,7 @@ public class SettingPopupController : MonoBehaviour
         {
             canvasGroup = GetComponent<CanvasGroup>();
         }
+        HideUnusedRows();
     }
 
     // ==================== ปรับเสียง ====================
@@ -79,6 +80,39 @@ public class SettingPopupController : MonoBehaviour
             passwordInput.onEndEdit.AddListener(SavePassword);
         }
         LockAccountInputs();
+
+        WireDeletePopupButtons();
+    }
+
+    // 🔧 ปุ่ม ยืนยัน/ยกเลิก ในป๊อปอัปลบบัญชี : บางฉาก (MainMenu) OnClick ไม่มีเป้าหมาย ทำให้ป๊อปอัปค้าง
+    //    -> ผูกให้ด้วยโค้ด เฉพาะปุ่มที่ไม่มีเป้าหมายจริง (กันกดแล้วทำงานซ้ำ 2 รอบในฉากที่ผูกไว้แล้ว)
+    private void WireDeletePopupButtons()
+    {
+        if (confirmDeletePopup == null) return;
+        foreach (Button b in confirmDeletePopup.GetComponentsInChildren<Button>(true))
+        {
+            if (HasValidPersistentTarget(b)) continue;
+            if (b.name == "ConfirmBtn") b.onClick.AddListener(ConfirmDeleteAccount);
+            else if (b.name == "CancelBtn") b.onClick.AddListener(CancelDeleteAccount);
+        }
+    }
+
+    private static bool HasValidPersistentTarget(Button b)
+    {
+        for (int i = 0; i < b.onClick.GetPersistentEventCount(); i++)
+        {
+            if (b.onClick.GetPersistentTarget(i) != null && !string.IsNullOrEmpty(b.onClick.GetPersistentMethodName(i))) return true;
+        }
+        return false;
+    }
+
+    // 🔧 ซ่อนแถวที่ยังไม่มีระบบรองรับ (ปุ่ม "แจ้งปัญหา" + สวิตช์ "การแจ้งเตือน") ไว้ก่อน
+    private void HideUnusedRows()
+    {
+        foreach (Transform t in GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "ReportBtn" || t.name == "NotificationContainer") t.gameObject.SetActive(false);
+        }
     }
 
     private void OnMusicSliderChanged(float v)
@@ -212,7 +246,14 @@ public class SettingPopupController : MonoBehaviour
     private void ShowMessage(string msg)
     {
         if (accountMessageText != null) accountMessageText.text = msg;
+        else if (!string.IsNullOrEmpty(msg)) ShowToast(msg);   // 🔧 ไม่มีช่องข้อความ -> โชว์เป็นป้ายลอยแทน ผู้เล่นจะได้รู้ผล
         if (!string.IsNullOrEmpty(msg)) Debug.Log($"[Setting] {msg}");
+    }
+
+    // ==================== ป้ายข้อความลอย (แจ้งผลเปลี่ยนชื่อ/รหัส) ====================
+    private void ShowToast(string msg)
+    {
+        GrowGoToast.Show(msg);
     }
 
     // ฟังก์ชันสำหรับ "ปุ่มเปิด"
@@ -224,14 +265,32 @@ public class SettingPopupController : MonoBehaviour
         }
 
         // เปิดวัตถุขึ้นมาก่อน แล้วเซ็ตความโปร่งใสเป็น 0 ทันทีเพื่อเตรียม Fade In
+        bool wasActive = gameObject.activeSelf;
         gameObject.SetActive(true);
         canvasGroup.alpha = 0f;
 
         // ดึงข้อมูลบัญชีล่าสุดมาโชว์ทุกครั้งที่เปิด
         LockAccountInputs();
-        LoadAccountInfo();   // (ถ้าป๊อปอัปเพิ่งถูกเปิด OnEnable จะโหลดให้ด้วย ไม่เป็นไร)
+        if (wasActive) LoadAccountInfo();   // 🔧 ถ้าเพิ่งเปิด OnEnable โหลดให้แล้ว ไม่ต้องยิงซ้ำ
+
+        // 🔧 ปิดเมนู "เพิ่มเติม" มุมขวาบนที่ค้างอยู่
+        MoreMenuToggle more = FindAnyObjectByType<MoreMenuToggle>();
+        if (more != null && more.moreMenuPanel != null) more.moreMenuPanel.SetActive(false);
 
         FadeTo(1f, true);
+    }
+
+    // 🔧 ปุ่มดินสอในป๊อปอัปโปรไฟล์ -> เปิดหน้าตั้งค่าแล้วให้พิมพ์ชื่อใหม่ได้ทันที
+    public void OpenAndEditUsername()
+    {
+        OpenPopup();
+        StartCoroutine(BeginEditNextFrame());
+    }
+
+    private IEnumerator BeginEditNextFrame()
+    {
+        yield return null;   // รอ Start ผูกปุ่ม/ล็อกช่องเสร็จก่อน
+        BeginEdit(usernameInput);
     }
 
     // ฟังก์ชันสำหรับ "ปุ่มปิด"
@@ -261,7 +320,15 @@ public class SettingPopupController : MonoBehaviour
         // ใช้ coroutine ของ SupabaseManager เพราะอยู่ข้ามฉาก (ป๊อปอัปนี้อาจถูกปิดระหว่างรอ)
         SupabaseManager.Instance.StartCoroutine(SupabaseManager.Instance.DeleteAccount(
             onSuccess: () => SceneManager.LoadScene(sceneAfterDelete),
-            onError: (err) => Debug.LogError($"[Setting] 🔴 ลบบัญชีไม่สำเร็จ: {err}")
+            onError: (err) =>
+            {
+                Debug.LogError($"[Setting] 🔴 ลบบัญชีไม่สำเร็จ: {err}");
+                if (this != null && gameObject.activeInHierarchy)
+                {
+                    if (confirmDeletePopup != null) confirmDeletePopup.SetActive(false);
+                    ShowMessage("ลบบัญชีไม่สำเร็จ ลองเช็คอินเทอร์เน็ตแล้วกดใหม่อีกครั้ง");
+                }
+            }
         ));
     }
 

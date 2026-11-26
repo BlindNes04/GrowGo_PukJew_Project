@@ -280,13 +280,17 @@ public class FertilizerMixerManager : MonoBehaviour
         }
     }
 
+    // 🔧 เลือกวัตถุดิบชิ้นเดิมซ้ำได้ตามจำนวนที่มี (เช่น มีเปลือกไข่ 3 ชิ้น ใส่ได้ครบ 3 ช่อง)
+    //    "ใช้หมดแล้ว" = จำนวนช่องที่ใส่ชิ้นนี้ไป >= จำนวนที่มีในกระเป๋า
     private bool IsIngredientUsed(int ingredientIndex)
     {
+        int usedCount = 0;
         for (int s = 0; s < slotItemIndex.Length; s++)
         {
-            if (isSlotFilled[s] && slotItemIndex[s] == ingredientIndex) return true;
+            if (isSlotFilled[s] && slotItemIndex[s] == ingredientIndex) usedCount++;
         }
-        return false;
+        int have = (ingredientIndex >= 0 && ingredientIndex < ingredients.Count) ? Mathf.Max(1, ingredients[ingredientIndex].quantity) : 1;
+        return usedCount >= have;
     }
 
     // ==========================================

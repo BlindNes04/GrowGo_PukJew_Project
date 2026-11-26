@@ -18,6 +18,27 @@ public class MyFriendItemView : MonoBehaviour
     private string currentFriendUserId;
     private string currentFriendshipId;
 
+    // ==================== ยืนยันก่อนลบเพื่อน (กด 2 ครั้งภายใน 3 วินาที) ====================
+    private float deleteArmedUntil = -1f;
+    private TextMeshProUGUI deleteLabel;
+    private string deleteLabelOriginal;
+
+    private void ArmDelete(bool armed)
+    {
+        deleteArmedUntil = armed ? Time.unscaledTime + 3f : -1f;
+        if (deleteLabel == null && deleteButton != null)
+        {
+            deleteLabel = deleteButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (deleteLabel != null) deleteLabelOriginal = deleteLabel.text;
+        }
+        if (deleteLabel != null) deleteLabel.text = armed ? "ยืนยันลบ?" : deleteLabelOriginal;
+    }
+
+    void Update()
+    {
+        if (deleteArmedUntil > 0f && Time.unscaledTime > deleteArmedUntil) ArmDelete(false);
+    }
+
     void Awake()
     {
         // Hide delete button on initialization
@@ -56,6 +77,7 @@ public class MyFriendItemView : MonoBehaviour
             {
                 bool isCurrentlyActive = deleteButton.gameObject.activeSelf;
                 deleteButton.gameObject.SetActive(!isCurrentlyActive);
+                ArmDelete(false);
             }
         });
 
@@ -70,6 +92,14 @@ public class MyFriendItemView : MonoBehaviour
         deleteButton.onClick.RemoveAllListeners();
         deleteButton.onClick.AddListener(() =>
         {
+            // กดครั้งแรก = ขอยืนยัน / กดซ้ำภายใน 3 วินาที = ลบจริง
+            if (deleteArmedUntil < 0f)
+            {
+                ArmDelete(true);
+                GrowGoToast.Show("กดลบอีกครั้งเพื่อยืนยันการลบเพื่อน", 1.6f);
+                return;
+            }
+            ArmDelete(false);
             onDeleteCallback?.Invoke(currentFriendshipId, gameObject);
         });
     }

@@ -45,6 +45,26 @@ public class MainMenuManager : MonoBehaviour
     private CanvasGroup currentActiveCard;
     private bool isSwitching = false;
 
+    // ==================== 🎬 hook ก่อนเปลี่ยนฉาก ====================
+    // ใครก็ได้ใส่ coroutine ไว้ตรงนี้ (GrowGoLeafTransition ใช้เล่นม่านใบไม้ปิดจอ) -> รอเล่นจบก่อนค่อยเปลี่ยนฉาก
+    // ไม่มีใครใส่ = เปลี่ยนฉากทันทีเหมือนเดิม
+    public static Func<string, IEnumerator> BeforeSceneChange;
+    private bool isChangingScene = false;
+
+    private void GoToScene(string sceneName)
+    {
+        if (isChangingScene) return;   // กันกดซ้ำระหว่างอนิเมชัน
+        isChangingScene = true;
+        if (BeforeSceneChange != null) StartCoroutine(GoToSceneAfterTransition(sceneName));
+        else SceneManager.LoadScene(sceneName);
+    }
+
+    private IEnumerator GoToSceneAfterTransition(string sceneName)
+    {
+        yield return StartCoroutine(BeforeSceneChange(sceneName));
+        SceneManager.LoadScene(sceneName);
+    }
+
     private void Start()
     {
         if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
@@ -113,18 +133,19 @@ public class MainMenuManager : MonoBehaviour
                 if (string.IsNullOrEmpty(buddyId))
                 {
                     Debug.Log("[MainMenu] 🟢 ผู้เล่นใหม่ยังไม่มี Buddy -> ไปหน้า Quiz");
-                    SceneManager.LoadScene("Quiz");
+                    GoToScene("Quiz");
                 }
                 else
                 {
                     Debug.Log($"[MainMenu] 🟢 ผู้เล่นมี Buddy แล้ว ({buddyId}) -> ไปหน้า MainForest");
-                    SceneManager.LoadScene("MainForest");
+                    GoToScene("MainForest");
                 }
             },
             onError: (err) =>
             {
                 Debug.LogError($"[MainMenu] 🔴 เช็ก Buddy จาก DB ล้มเหลว: {err}");
                 ShowStatus(loginStatusText, "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาลองใหม่!", Color.red);
+                GrowGoToast.Show("เชื่อมต่อไม่ได้ ลองเช็คอินเทอร์เน็ตแล้วกดเล่นอีกครั้งนะ");   // 🔧 หน้าล็อกอินซ่อนอยู่ ผู้เล่นมองไม่เห็นข้อความด้านบน
             }
         ));
     }

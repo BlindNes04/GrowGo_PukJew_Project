@@ -71,9 +71,22 @@ public class PlantStoreController : MonoBehaviour
     private bool isBusy = false;
     private string attachIdleText = "";
 
+    // ==================== กันหน้าร้านกระพริบค่า default ====================
+    // เดิม: ช่องต้นแบบใน Content (เชอร์รี่ ราคา 0) โชว์อยู่จนกว่าจะโหลดของจาก DB เสร็จ แล้วค่อยเปลี่ยนเป็นของจริง
+    // แก้: ซ่อนช่องต้นแบบทันที + จำรายการของ/โอกาสสุ่มล่าสุดไว้ เข้าร้านรอบหน้าสร้างจากของที่จำไว้ก่อน แล้วค่อยรีเฟรช
+    private static List<SupabaseManager.ShopItemData> cachedShopItems;
+    private static Dictionary<string, List<SupabaseManager.ShopDropData>> cachedDrops;
+
     // ==================== เริ่มต้น ====================
     void Start()
     {
+        if (slotPrefab != null && slotPrefab.transform.parent == contentParent) slotPrefab.gameObject.SetActive(false);
+        if (cachedShopItems != null)
+        {
+            if (cachedDrops != null) dropsByShopItem = new Dictionary<string, List<SupabaseManager.ShopDropData>>(cachedDrops);
+            BuildShop(cachedShopItems);
+        }
+
         HidePopup();
         if (picturePill != null) picturePill.SetActive(false);
         foreach (var b in closeButtons) if (b != null) b.onClick.AddListener(HidePopup);
@@ -110,18 +123,37 @@ public class PlantStoreController : MonoBehaviour
     private void LoadRelationship()
     {
         if (relationshipText == null) return;
+        var db = SupabaseManager.Instance;
         string plantId = PlayerPrefs.GetString("Plant_PlayerPlantId", "");
-        if (string.IsNullOrEmpty(plantId)) { relationshipText.text = "0"; return; }
+        string userId = db.GetActiveUserId();
 
         // 📦 โชว์หัวใจจาก cache ก่อน (ไม่ต้องเห็นค่า default) แล้วค่อยดึง DB ใหม่ด้านล่าง
-        SupabasePlayerPlant cachedPlant = SupabaseManager.Instance.GetCachedPlant(plantId);
-        if (cachedPlant != null) relationshipText.text = cachedPlant.relationship_score.ToString();
-
-        StartCoroutine(SupabaseManager.Instance.GetRest($"player_plant?select=relationship_score&player_plant_id=eq.{plantId}", json =>
+        // 🔧 ต้นที่เลือกไม่อยู่ใน cache (เช่นสลับบัญชี) -> ใช้ต้นแรกของผู้เล่น ไม่มีต้นเลย = 0
+        string cachedJson = db.GetCachedPlayerPlants();
+        if (!string.IsNullOrEmpty(cachedJson))
         {
+            SupabasePlayerPlant cachedPlant = db.GetCachedPlant(plantId);
+            if (cachedPlant == null)
+            {
+                SupabasePlayerPlantList list = JsonUtility.FromJson<SupabasePlayerPlantList>("{\"items\":" + cachedJson + "}");
+                if (list != null && list.items != null && list.items.Count > 0) cachedPlant = list.items[0];
+            }
+            relationshipText.text = cachedPlant != null ? cachedPlant.relationship_score.ToString() : "0";
+        }
+        if (string.IsNullOrEmpty(userId)) return;
+
+        // 🔧 เดิมค้นด้วย player_plant_id อย่างเดียว ซึ่งซ้ำกันได้ข้ามผู้เล่น (เช่น PLANT_SLOT_25) เลยได้หัวใจของคนอื่น
+        //    -> กรองด้วย user_id ด้วย แล้วเลือกต้นที่เลือกอยู่ ถ้าไม่เจอใช้ต้นแรก
+        StartCoroutine(db.GetRest($"player_plant?select=player_plant_id,relationship_score&user_id=eq.{userId}", json =>
+        {
+            if (relationshipText == null) return;
             var rows = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(json);
-            relationshipText.text = (rows != null && rows.Count > 0 && rows[0]["relationship_score"] != null)
-                ? rows[0]["relationship_score"].ToString() : "0";
+            Dictionary<string, object> row = null;
+            if (rows != null && rows.Count > 0)
+            {
+                row = rows.Find(r => r["player_plant_id"] != null && r["player_plant_id"].ToString().Trim() == plantId.Trim()) ?? rows[0];
+            }
+            relationshipText.text = (row != null && row["relationship_score"] != null) ? row["relationship_score"].ToString() : "0";
         }));
     }
 
@@ -134,11 +166,14 @@ public class PlantStoreController : MonoBehaviour
             if (!dropsByShopItem.ContainsKey(d.shop_item_id)) dropsByShopItem[d.shop_item_id] = new List<SupabaseManager.ShopDropData>();
             dropsByShopItem[d.shop_item_id].Add(d);
         }
+        cachedDrops = new Dictionary<string, List<SupabaseManager.ShopDropData>>(dropsByShopItem);
         StartCoroutine(SupabaseManager.Instance.GetShopItems(BuildShop));
     }
 
     private void BuildShop(List<SupabaseManager.ShopItemData> items)
     {
+        if (this == null) return;   // ออกจากร้านไปก่อนโหลดเสร็จ
+        cachedShopItems = items;
         // ลบช่องเก่า (กรณีโหลดใหม่)
         foreach (var s in spawnedSlots) if (s != null) Destroy(s.gameObject);
         spawnedSlots.Clear();

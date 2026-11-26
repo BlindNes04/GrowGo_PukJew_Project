@@ -61,6 +61,7 @@ public class BeachRewardController : MonoBehaviour
         }
 
         currentRewardedItemId = item.itemId;
+        rewardClaimed = false;
         Debug.Log($"[BeachRewardController] 🎁 Opened Reward Window with Item: {item.itemName} (ID: {item.itemId})");
 
         gameObject.SetActive(true);
@@ -92,6 +93,8 @@ public class BeachRewardController : MonoBehaviour
             StopCoroutine(sequenceCoroutine);
 
         sequenceCoroutine = StartCoroutine(PlaySequenceAnimation());
+
+        ClaimRewardOnce();   // 🔧 บันทึกของทันทีที่ได้ ไม่ต้องรอกดปุ่ม
     }
 
     private IEnumerator PlaySequenceAnimation()
@@ -248,6 +251,19 @@ public class BeachRewardController : MonoBehaviour
 
     private void OnBackToStartClicked()
     {
+        ClaimRewardOnce();   // (ปกติบันทึกไปแล้วตอนเปิดหน้าต่าง ตรงนี้กันพลาดเฉยๆ)
+
+        // ปิดหน้าต่าง Popup รางวัล
+        gameObject.SetActive(false);
+    }
+
+    // 🔧 บันทึกของเข้ากระเป๋าทันทีที่ได้รางวัล (เดิมบันทึกตอนกด "กลับสู่หน้าสำรวจ" ถ้าปิดแอปก่อนกด ของจะหาย)
+    private bool rewardClaimed = false;
+    private void ClaimRewardOnce()
+    {
+        if (rewardClaimed) return;
+        rewardClaimed = true;
+
         if (SupabaseManager.Instance == null)
         {
             Debug.LogError("[BeachRewardController] 🔴 SupabaseManager.Instance เป็น NULL!");
@@ -283,8 +299,5 @@ public class BeachRewardController : MonoBehaviour
         {
             BeachShellManager.Instance.OnRewardClaimed();
         }
-
-        // ปิดหน้าต่าง Popup รางวัล
-        gameObject.SetActive(false);
     }
 }

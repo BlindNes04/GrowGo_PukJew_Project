@@ -35,6 +35,12 @@ public class SeedManager : MonoBehaviour
     private Coroutine shakeCoroutine;
     private bool isTransitioning = false;
 
+    // ==================== 🎬 hook ก่อนเปลี่ยนฉาก ====================
+    // ใครก็ได้ใส่ coroutine ไว้ตรงนี้ (GrowGoLeafTransition ใช้เล่นม่านใบไม้ปิดจอ) -> รอเล่นจบก่อนค่อยเปลี่ยนฉาก
+    // ไม่มีใครใส่ = เปลี่ยนฉากทันทีเหมือนเดิม
+    public static System.Func<string, IEnumerator> BeforeSceneChange;
+    private bool isChangingScene = false;
+
     private void Awake()
     {
         if (finishButton != null)
@@ -166,6 +172,15 @@ public class SeedManager : MonoBehaviour
     public void OnFinishAndGoToForest()
     {
         Debug.Log("[SeedManager] 🟢 ยืนยันรับเมล็ดพืช -> กำลังไปหน้า MainForest...");
+        if (isChangingScene) return;   // กันกดซ้ำระหว่างอนิเมชัน
+        isChangingScene = true;
+        if (BeforeSceneChange != null) StartCoroutine(GoToSceneAfterTransition());
+        else SceneManager.LoadScene(targetSceneName);
+    }
+
+    private IEnumerator GoToSceneAfterTransition()
+    {
+        yield return StartCoroutine(BeforeSceneChange(targetSceneName));
         SceneManager.LoadScene(targetSceneName);
     }
 }

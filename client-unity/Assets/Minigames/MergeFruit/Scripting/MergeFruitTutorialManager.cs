@@ -9,15 +9,19 @@ public class MergeFruitTutorialManager : MonoBehaviour
     public GameObject[] pages;
 
     private int currentIndex = 0;
+    private bool openedByPlayer = false;   // 🔧 กันไม่ให้ Start ปิดป๊อปอัปทับ ตอนกด ? ครั้งแรก
 
     private void Start()
     {
-        if (popupTutorialPanel != null)
+        // 🔧 ถ้าสคริปต์นี้อยู่บนป๊อปอัปเอง Start จะเพิ่งทำงานตอนกด ? ครั้งแรก แล้วไปปิดป๊อปอัปทิ้ง
+        //    -> ปิดเฉพาะตอนผู้เล่นยังไม่ได้กดเปิด
+        if (popupTutorialPanel != null && !openedByPlayer)
             popupTutorialPanel.SetActive(false);
     }
 
     public void OpenTutorial()
     {
+        openedByPlayer = true;
         popupTutorialPanel.SetActive(true);
         currentIndex = 0;
         ShowPage(currentIndex);

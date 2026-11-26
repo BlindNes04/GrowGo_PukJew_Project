@@ -22,6 +22,11 @@ public class LoadingManager : MonoBehaviour
     [Range(0f, 1f)] public float sceneShare = 0.3f;   // ส่วนของหลอดที่เป็นการโหลดฉาก (ที่เหลือเป็นการโหลดข้อมูลผู้เล่น)
     public float maxWaitSeconds = 15f;                 // เน็ตช้า/หลุด รอข้อมูลได้นานสุดเท่านี้ แล้วเข้าเกมต่อ (หน้าอื่นจะโหลดเองทีหลัง)
 
+    // ==================== 🎬 hook ก่อนสลับฉาก ====================
+    // ใครก็ได้ใส่ coroutine ไว้ตรงนี้ (GrowGoLoadingFX ใช้เล่นอนิเมชันโหลดเสร็จ/โลโก้ขยาย) -> รอเล่นจบก่อนค่อยสลับฉาก
+    // ไม่มีใครใส่ = สลับฉากทันทีเหมือนเดิม
+    public static System.Func<IEnumerator> BeforeSceneSwitch;
+
     void Awake()
     {
         Application.targetFrameRate = 60;
@@ -70,6 +75,7 @@ public class LoadingManager : MonoBehaviour
         // ---------- ทุกอย่างพร้อม -> หลอดเต็ม แล้วสลับไปหน้า MainMenu ----------
         if (loadingSlider != null) loadingSlider.value = 1f;
         yield return new WaitForSeconds(0.2f);
+        if (BeforeSceneSwitch != null) yield return StartCoroutine(BeforeSceneSwitch());
         operation.allowSceneActivation = true;
     }
 }

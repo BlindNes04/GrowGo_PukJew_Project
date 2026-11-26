@@ -3466,10 +3466,10 @@ MonoBehaviour:
   rainbowChance: 5
   silverItems:
   - itemId: 'ITEM_ING_FEATHER  '
-    itemName: "\u0E02\u0E19\u0E19\u0E01\u0E2A\u0E35\u0E40\u0E07\u0E34\u0E19 "
+    itemName: "\u0E02\u0E19\u0E19\u0E01\u0E2A\u0E35\u0E40\u0E07\u0E34\u0E19"
     itemIcon: {fileID: 21300000, guid: d7ca46878a7e38f448ac9483c04150af, type: 3}
   - itemId: ITEM_ING_BAT_DROP
-    itemName: "\u0E21\u0E39\u0E25\u0E04\u0E49\u0E32\u0E07\u0E04\u0E32\u0E27\u0E2B\u0E21\u0E31\u0E01 "
+    itemName: "\u0E21\u0E39\u0E25\u0E04\u0E49\u0E32\u0E07\u0E04\u0E32\u0E27\u0E2B\u0E21\u0E31\u0E01"
     itemIcon: {fileID: 21300000, guid: fc73e6b1563e3194f8425b50225d33a5, type: 3}
   goldItems:
   - itemId: 'ITEM_ING_FOSSIL '
@@ -3477,7 +3477,7 @@ MonoBehaviour:
     itemIcon: {fileID: 21300000, guid: aed555b988e8e744c8c16eab51f1c220, type: 3}
   rainbowItems:
   - itemId: 'ITEM_ING_MYST_POTION '
-    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E1E\u0E23\u0E32\u0E22\u0E0A\u0E21\u0E1E\u0E39  "
+    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E1E\u0E23\u0E32\u0E22\u0E0A\u0E21\u0E1E\u0E39"
     itemIcon: {fileID: 21300000, guid: 3e50d06e8e570474293b3431765330e0, type: 3}
   - itemId: ITEM_ING_MOSS
     itemName: "\u0E21\u0E2D\u0E2A\u0E40\u0E23\u0E37\u0E2D\u0E07\u0E41\u0E2A\u0E07"

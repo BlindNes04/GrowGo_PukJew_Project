@@ -73,11 +73,23 @@ public class AddFriendViewController : MonoBehaviour
             }
         }
 
-        // Step B: ดึงตาราง user ทั้งหมด
+        // Step B: ดึงผู้เล่นมาแค่ช่วงหนึ่ง (สุ่มจุดเริ่ม) แทนการโหลดทั้งตาราง 3,000 คน
+        // 🔧 ถ้าช่วงที่สุ่มได้มีคนไม่พอ (ตารางเล็กกว่าที่คิด) โหลดใหม่จากต้นตาราง
+        int pageSize = 100;
+        int randomOffset = UnityEngine.Random.Range(0, 2900);
         yield return StartCoroutine(SupabaseManager.Instance.GetAllUsers(
             (json) => { allUsers = JsonConvert.DeserializeObject<List<UserData>>(json); },
-            (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); }
+            (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); },
+            null, pageSize, randomOffset
         ));
+        if (allUsers == null || allUsers.Count(u => !excludedUserIds.Contains(u.userId)) < 10)
+        {
+            yield return StartCoroutine(SupabaseManager.Instance.GetAllUsers(
+                (json) => { allUsers = JsonConvert.DeserializeObject<List<UserData>>(json); },
+                (error) => { Debug.LogError($"[Social] Get Users Error: {error}"); },
+                null, pageSize, 0
+            ));
+        }
 
         // รอโหลดตารางบัดดี้ (ใช้ทำรูปโปรไฟล์) ให้เสร็จก่อนสร้างรายการ
         yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
@@ -121,7 +133,11 @@ public class AddFriendViewController : MonoBehaviour
             (json) => { searchResults = JsonConvert.DeserializeObject<List<UserData>>(json); },
             (error) => { Debug.LogError($"[Social] Search Error: {error}"); }
         ));
-        if (searchResults == null) yield break;
+        if (searchResults == null)
+        {
+            GrowGoToast.Show("ค้นหาไม่สำเร็จ ลองเช็คอินเทอร์เน็ตแล้วกดใหม่อีกครั้ง");
+            yield break;
+        }
 
         // 🤝 ตัดคนที่เป็นเพื่อนกันแล้ว และคนที่เราส่งคำขอไปแล้วออก (กันกดส่งซ้ำแล้ว DB ตอบ error 409)
         //    คนที่ส่งคำขอมาหาเรายังโชว์อยู่ กดแอด = เป็นเพื่อนกันทันที (DB auto accept)
@@ -149,12 +165,21 @@ public class AddFriendViewController : MonoBehaviour
         yield return StartCoroutine(SupabaseManager.Instance.LoadBuddyMbtiMap());
         // 🤝 คนที่ id / ชื่อ / แท็ก ตรงกับคำค้นเป๊ะๆ ขึ้นก่อน ที่เหลือเรียงตามเดิม
         string kw = query.Trim().TrimStart('#').ToLower();
-        PopulateList(searchResults
+        List<UserData> shown = searchResults
             .Where(u => !hiddenUserIds.Contains(u.userId))
             .OrderByDescending(u => (u.userId ?? "").ToLower() == kw
                                  || (u.username ?? "").ToLower() == kw
                                  || (u.userTag ?? "").TrimStart('#').ToLower() == kw)
-            .ToList(), sentUserIds);
+            .ToList();
+
+        // ==================== แจ้งเมื่อค้นหาไม่เจอ ====================
+        if (shown.Count == 0)
+        {
+            bool onlyFriends = searchResults.Any(u => u.userId != currentUserId);
+            GrowGoToast.Show(onlyFriends ? "คนนี้เป็นเพื่อนกับเราอยู่แล้ว" : "ไม่พบผู้ใช้ \"" + query + "\"");
+        }
+
+        PopulateList(shown, sentUserIds);
     }
 
     // ==================== กดส่งคำขอเป็นเพื่อน ====================

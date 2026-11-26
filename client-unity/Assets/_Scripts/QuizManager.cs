@@ -68,6 +68,8 @@ public class QuizManager : MonoBehaviour
     private Sprite originalSpriteA;
     private Sprite originalSpriteB;
     private CanvasGroup nextButtonCanvasGroup;
+    private TMPro.TMP_Text nextButtonLabel;
+    private string nextButtonIdleText;
     private CanvasGroup prevButtonCanvasGroup;
 
     private bool isTransitioning = false; 
@@ -303,6 +305,15 @@ public class QuizManager : MonoBehaviour
 
         nextButton.gameObject.SetActive(true);
         nextButton.interactable = true;
+
+        // 🔧 ข้อสุดท้ายเปลี่ยนป้ายปุ่มเป็น "เสร็จสิ้น" (เดิมขึ้น "ถัดไป" ทุกข้อ)
+        if (nextButtonLabel == null)
+        {
+            nextButtonLabel = nextButton.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (nextButtonLabel != null) nextButtonIdleText = nextButtonLabel.text;
+        }
+        if (nextButtonLabel != null && questions != null)
+            nextButtonLabel.text = currentQuestion >= questions.Count - 1 ? "เสร็จสิ้น" : nextButtonIdleText;
 
         if (nextButtonCanvasGroup != null)
         {

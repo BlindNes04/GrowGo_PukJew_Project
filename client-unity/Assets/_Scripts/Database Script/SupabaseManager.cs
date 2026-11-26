@@ -650,7 +650,7 @@ public class SupabaseManager : MonoBehaviour
                 $"\"player_plant_id\":\"{newPlantId}\"," +
                 $"\"user_id\":\"{GetActiveUserId()}\"," +
                 $"\"stage_id\":\"{initialStageId}\"," +
-                $"\"plant_nickname\":\"{nickname}\"," +
+                $"\"plant_nickname\":{JsonConvert.ToString(nickname ?? "")}," +   // 🔧 escape กันชื่อที่มี " หรือ \ ทำ JSON พัง
                 $"\"current_exp\":0," +
                 $"\"relationship_score\":0," +
                 // last_watered_at = null = ต้นใหม่ยังไม่เคยรดน้ำ ผู้เล่นต้องกดรดน้ำเองครั้งแรก
@@ -777,7 +777,7 @@ public class SupabaseManager : MonoBehaviour
             $"\"player_plant_id\":\"{cleanPlantId}\"," +
             $"\"user_id\":\"{plant.userId.Trim()}\"," +
             $"\"stage_id\":\"{plant.currentStageId.Trim()}\"," +
-            $"\"plant_nickname\":\"{plant.plantNickname.Trim()}\"," +
+            $"\"plant_nickname\":{JsonConvert.ToString((plant.plantNickname ?? "").Trim())}," +   // 🔧 escape กันชื่อที่มี " หรือ \ ทำ JSON พัง
             $"\"current_exp\":{Mathf.RoundToInt(plant.currentNutrients)}," +
             $"\"relationship_score\":{plant.relationshipScore}," +
             $"\"last_watered_at\":{lastWateredStr}," +
@@ -847,9 +847,12 @@ public class SupabaseManager : MonoBehaviour
         }
     }
 
-    public IEnumerator GetAllUsers(Action<string> onSuccess, Action<string> onError, List<string> onlyUserIds = null)
+    public IEnumerator GetAllUsers(Action<string> onSuccess, Action<string> onError, List<string> onlyUserIds = null, int limit = 0, int offset = 0)
     {
         string endpoint = $"{supabaseUrl}/rest/v1/user?select=user_id,username,user_tag,level,buddy_id";
+
+        // 🔧 จำกัดจำนวนแถว (เช่น หน้าแนะนำเพื่อนไม่ต้องโหลดทั้ง 3,000 คน)
+        if (limit > 0) endpoint += $"&order=user_id&limit={limit}&offset={Mathf.Max(0, offset)}";
 
         // 🤝 Supabase ส่งกลับได้มากสุด 1000 แถวต่อครั้ง แต่ตาราง user มี 3000+ แถว (รวม mock)
         //    ถ้าดึงทั้งตาราง USER_002 / USER_003 จะหลุดไปอยู่หลัง 1000 แถวแรก เลยหาไม่เจอ

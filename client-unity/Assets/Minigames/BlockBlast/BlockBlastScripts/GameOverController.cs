@@ -55,8 +55,9 @@ public class GameOverController : MonoBehaviour
 
     private void Awake()
     {
-        if (restartbutton != null) restartbutton.onClick.AddListener(RestartGame);
-        if (homebutton != null) homebutton.onClick.AddListener(GoToHome);
+        // 🔧 ถ้าในฉากผูกปุ่มไว้แล้ว (เช่น SceneNavigator.GoToMainScene) ไม่ต้องผูกซ้ำ กันโหลดฉากสองรอบ
+        if (restartbutton != null && restartbutton.onClick.GetPersistentEventCount() == 0) restartbutton.onClick.AddListener(RestartGame);
+        if (homebutton != null && homebutton.onClick.GetPersistentEventCount() == 0) homebutton.onClick.AddListener(GoToHome);
     }
 
     private void Start()

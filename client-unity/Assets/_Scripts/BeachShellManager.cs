@@ -41,6 +41,10 @@ public class BeachShellManager : MonoBehaviour
     private Quaternion activeShellOriginalRotation;
     private bool isCooldown = false;
 
+    // 🔧 คูลดาวน์แยกตามบัญชี (เดิมเก็บรวมทั้งเครื่อง สลับบัญชีแล้วติดคูลดาวน์ของคนก่อน)
+    private static string CooldownKey =>
+        "Beach_LastClaimTime_" + (SupabaseManager.Instance != null ? SupabaseManager.Instance.GetActiveUserId() : "");
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -54,7 +58,7 @@ public class BeachShellManager : MonoBehaviour
     [ContextMenu("Clear Cooldown PlayerPrefs")]
     public void ClearCooldownPrefs()
     {
-        PlayerPrefs.DeleteKey("Beach_LastClaimTime");
+        PlayerPrefs.DeleteKey(CooldownKey);
         PlayerPrefs.Save();
         Debug.Log("[BeachShellManager] 🟢 Cleared Beach_LastClaimTime PlayerPrefs!");
     }
@@ -66,7 +70,7 @@ public class BeachShellManager : MonoBehaviour
 
     private void CheckCooldownState()
     {
-        string lastClaimTimeString = PlayerPrefs.GetString("Beach_LastClaimTime", "");
+        string lastClaimTimeString = PlayerPrefs.GetString(CooldownKey, "");
 
         if (!string.IsNullOrEmpty(lastClaimTimeString))
         {
@@ -237,7 +241,7 @@ public class BeachShellManager : MonoBehaviour
 
     public void OnRewardClaimed()
     {
-        PlayerPrefs.SetString("Beach_LastClaimTime", DateTime.UtcNow.Ticks.ToString());
+        PlayerPrefs.SetString(CooldownKey, DateTime.UtcNow.Ticks.ToString());
         PlayerPrefs.Save();
 
         Debug.Log("[BeachShellManager] 🟢 Reward claimed! Cooldown started.");

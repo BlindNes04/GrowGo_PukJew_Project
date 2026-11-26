@@ -26,6 +26,7 @@ public class RewardController : MonoBehaviour
 
     private Coroutine sequenceCoroutine;
     private string currentRewardedItemId; // ตัวแปรจำ ID ไอเทม
+    private bool rewardClaimed; // กันบันทึกของรางวัลซ้ำ (บันทึกทันทีตอนเปิดหน้าต่าง)
 
     private void Awake()
     {
@@ -60,6 +61,7 @@ public class RewardController : MonoBehaviour
         }
 
         currentRewardedItemId = item.itemId; // จำรหัสไอเทมที่ได้รับ
+        rewardClaimed = false;
 
         gameObject.SetActive(true);
 
@@ -90,6 +92,9 @@ public class RewardController : MonoBehaviour
             StopCoroutine(sequenceCoroutine);
 
         sequenceCoroutine = StartCoroutine(PlaySequenceAnimation());
+
+        // ==================== บันทึกของรางวัลทันที (กันของหายถ้าผู้เล่นปิดแอปก่อนกดปุ่ม) ====================
+        ClaimRewardOnce();
     }
 
     private IEnumerator PlaySequenceAnimation()
@@ -239,8 +244,12 @@ public class RewardController : MonoBehaviour
         return group;
     }
 
-private void OnBackToStartClicked()
+// ==================== บันทึกของรางวัล + Behavior Log (ครั้งเดียวต่อรอบ) ====================
+private void ClaimRewardOnce()
 {
+    if (rewardClaimed) return;
+    rewardClaimed = true;
+
     if (SupabaseManager.Instance == null)
     {
         Debug.LogError("[MistRewardController] 🔴 SupabaseManager.Instance เป็น NULL!");
@@ -274,6 +283,11 @@ private void OnBackToStartClicked()
     // 📝 Behavior Log: สำรวจเกาะหมอกแล้วได้ของ 1 ครั้ง
     if (SupabaseManager.Instance != null && !string.IsNullOrEmpty(currentRewardedItemId))
         SupabaseManager.Instance.LogBehavior("explore_island", "island", "mist", "item_id", currentRewardedItemId.Trim());
+}
+
+private void OnBackToStartClicked()
+{
+    ClaimRewardOnce();
 
     if (GameFlowManager.Instance != null)
     {

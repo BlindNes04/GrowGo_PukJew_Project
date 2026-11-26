@@ -70,6 +70,7 @@ public class PlantStatus : MonoBehaviour
 
     [Header("📅 โควตารายวัน (player_plant)")]
     public int fertUsedToday = 0;               // วันนี้ใส่ปุ๋ยไปกี่ครั้ง
+    [System.NonSerialized] public int fxFertilizeCount = 0;   // ✨ นับครั้งที่ใส่ปุ๋ยจริงในรอบเล่นนี้ (ให้ GrowGoJuice เล่นเอฟเฟกต์ ไม่โหลดจาก DB)
     public int heartGainedToday = 0;            // วันนี้ได้หัวใจจากปุ๋ย/ไอเทมไปเท่าไหร่
     public string dailyCountDate = "";          // วันที่ของตัวนับ (เวลาไทย yyyy-MM-dd)
 
@@ -168,8 +169,12 @@ public class PlantStatus : MonoBehaviour
         return true;
     }
 
+    // 🔧 รู้ว่า Start ทำงานไปแล้วหรือยัง (ปลูกต้นแรกแล้วเปิดตัวพืช จะได้ไม่โหลดซ้ำสองรอบ)
+    public bool HasStarted { get; private set; }
+
     void Start()
     {
+        HasStarted = true;
         UpdateMoistureStatus();
         SyncCharacterVisual();
 
@@ -895,6 +900,7 @@ public class PlantStatus : MonoBehaviour
     // ปุ๋ยพื้นฐาน (ไม่มีข้อมูลไอเทม): ได้ค่าพื้นฐานทั้งหมด
     public void ApplyFertilizer()
     {
+        fxFertilizeCount++;   // ✨ ให้เอฟเฟกต์ใส่ปุ๋ยเล่น
         ApplyFertilizerInternal(null, baseNutrientsFromFertilizer, 0f, baseExpFromFertilizer, baseCoinsFromFertilizer, baseRelationshipFromFertilizer);
     }
 
@@ -917,7 +923,7 @@ public class PlantStatus : MonoBehaviour
             Debug.LogWarning($"[PlantStatus] 📅 {quotaMessage}");
             return;
         }
-        if (IsNutrientItem(invItem)) { ResetDailyIfNewDay(); fertUsedToday++; }   // นับ 1 ครั้ง (ยา/คูปอง/ยาย้อนร่าง ไม่นับ)
+        if (IsNutrientItem(invItem)) { ResetDailyIfNewDay(); fertUsedToday++; fxFertilizeCount++; }   // นับ 1 ครั้ง (ยา/คูปอง/ยาย้อนร่าง ไม่นับ)
 
         if (meta == null)
         {
@@ -958,7 +964,7 @@ public class PlantStatus : MonoBehaviour
             // ยารักษา / ปุ๋ย CURE: หายป่วย + ได้เกราะตาม effect_value (CURE_C 0, B 1, A 2, S 3, ขนนก/สมุนไพร 1)
             // ไม่เติมน้ำ ไม่เพิ่มสารอาหาร
             case "cure_protect":
-                gainNutrients = 0f;   // ⚖️ ยารักษาไม่เพิ่มสารอาหาร (เลยไม่นับโควตาปุ๋ยรายวัน)
+                gainNutrients = 0f;   // ยารักษาไม่เพิ่มสารอาหาร (เลยไม่นับโควตาปุ๋ยรายวัน)
                 isSick = false;
                 sickUntil = "";
                 immunityShields += Mathf.Max(0, Mathf.RoundToInt(value));
@@ -1235,11 +1241,12 @@ public class PlantStatus : MonoBehaviour
     }
 
     // สุ่มดรอปไอเทมจากการดูแลพืช (รดน้ำ / ใส่ปุ๋ย)
-    // โอกาส = 15% + โอกาสเพิ่มจากปุ๋ย EVO (ถ้ามี)
+    // โอกาส = รดน้ำ 7% / ใส่ปุ๋ย 10% + โอกาสเพิ่มจากปุ๋ย EVO (ถ้ามี)
     // (สกิลนกฮูก/เต่า ทำงานตอนสำรวจเกาะและตอนกดรับรางวัล ไม่ได้บวกตรงนี้)
     private void CheckCareDrop(string actionType, float customBonusChance = 0f)
     {
-        float baseDropChance = 0.15f; // โอกาสพื้นฐาน 15%
+        // รดน้ำ 7% / ใส่ปุ๋ย 10% (ลดจากเดิม 15% ทั้งคู่ ตามที่บอสขอ เพราะได้ง่ายไป)
+        float baseDropChance = actionType == "water" ? 0.07f : 0.10f;
         float finalDropChance = baseDropChance + customBonusChance;
 
         if (UnityEngine.Random.value <= finalDropChance)

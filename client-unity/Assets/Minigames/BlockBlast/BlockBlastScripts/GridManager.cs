@@ -69,10 +69,14 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    // ==================== สถิติสูงสุดแยกตามบัญชี (เดิมใช้ร่วมทั้งเครื่อง สลับบัญชีแล้วเห็นสถิติคนก่อน) ====================
+    private static string BestScoreKey =>
+        "BestScore_" + (SupabaseManager.Instance != null ? SupabaseManager.Instance.GetActiveUserId() : "");
+
     private void LoadAndDisplayScores()
     {
         currentScore = 0;
-        bestScore = PlayerPrefs.GetInt("BestScore", 0);
+        bestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
 
         if (ScoreText != null) ScoreText.text = "0";
         if (BestScoreText != null) BestScoreText.text = bestScore.ToString();
@@ -559,7 +563,7 @@ public class GridManager : MonoBehaviour
         if (currentScore > bestScore)
         {
             bestScore = currentScore;
-            PlayerPrefs.SetInt("BestScore", bestScore); // อัปเดตสถิติสูงสุด
+            PlayerPrefs.SetInt(BestScoreKey, bestScore); // อัปเดตสถิติสูงสุด
             PlayerPrefs.Save();
             if (BestScoreText != null) BestScoreText.text = bestScore.ToString();
         }
@@ -583,7 +587,7 @@ public class GridManager : MonoBehaviour
         if (currentScore > bestScore)
         {
             bestScore = currentScore;
-            PlayerPrefs.SetInt("BestScore", bestScore);
+            PlayerPrefs.SetInt(BestScoreKey, bestScore);
             PlayerPrefs.Save();
         }
 

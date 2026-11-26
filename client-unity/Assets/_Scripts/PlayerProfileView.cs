@@ -94,6 +94,7 @@ public class PlayerProfileView : MonoBehaviour
     {
         if (openProfileButton != null) openProfileButton.onClick.AddListener(OpenProfile);
         if (closeProfileButton != null) closeProfileButton.onClick.AddListener(CloseProfile);
+        WireEditNameButton();
         if (profilePopup != null) profilePopup.SetActive(false);
         if (levelUpPopup != null) levelUpPopup.SetActive(false);
         if (expRingFill != null) expRingFill.fillAmount = 0f;   // เริ่มจากหลอดว่าง (สีเทา) แล้ววิ่งขึ้น
@@ -173,6 +174,24 @@ public class PlayerProfileView : MonoBehaviour
     public void CloseProfile()
     {
         if (profilePopup != null) profilePopup.SetActive(false);
+    }
+
+    // 🔧 ปุ่มดินสอข้างชื่อในป๊อปอัปโปรไฟล์ (EditBtn) เดิมกดแล้วไม่มีอะไร
+    //    -> ปิดโปรไฟล์ แล้วเปิดหน้าตั้งค่าให้พิมพ์ชื่อใหม่ทันที (ถ้าฉากนี้ไม่มีหน้าตั้งค่า ซ่อนดินสอไปเลย)
+    private void WireEditNameButton()
+    {
+        if (profilePopup == null) return;
+        foreach (Button b in profilePopup.GetComponentsInChildren<Button>(true))
+        {
+            if (b.name != "EditBtn" || b.onClick.GetPersistentEventCount() > 0) continue;
+            SettingPopupController setting = FindAnyObjectByType<SettingPopupController>(FindObjectsInactive.Include);
+            if (setting == null) { b.gameObject.SetActive(false); continue; }
+            b.onClick.AddListener(() =>
+            {
+                CloseProfile();
+                setting.OpenAndEditUsername();
+            });
+        }
     }
 
     private void RefreshPopup()

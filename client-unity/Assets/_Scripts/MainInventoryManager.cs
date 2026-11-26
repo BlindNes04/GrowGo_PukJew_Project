@@ -352,16 +352,24 @@ public class MainInventoryManager : MonoBehaviour
                         CloseDetail();
 
                         // 4. 🔧 ถ้าบนแท่นยังไม่มีพืช (ผู้เล่นใหม่) ให้โหลดพืชที่เพิ่งปลูกขึ้นมาโชว์ทันที
-                        PlantStatus plant = FindAnyObjectByType<PlantStatus>();
+                        //    (ต้องหารวมตัวที่ถูกซ่อนด้วย เพราะผู้เล่นใหม่ตัวพืชถูกปิดไว้ ถ้าไม่เปิดก่อนจะหาไม่เจอ/สั่ง coroutine ไม่ได้)
+                        PlantStatus plant = FindAnyObjectByType<PlantStatus>(FindObjectsInactive.Include);
                         if (plant != null && string.IsNullOrEmpty(plant.playerPlantId))
                         {
-                            plant.StartCoroutine("LoadAllDataFromSupabaseRoutine");
+                            if (!plant.gameObject.activeSelf) plant.gameObject.SetActive(true);
+                            // เปิดครั้งแรก Start ของพืชจะโหลดเอง -> สั่งโหลดเฉพาะตอนที่ Start เคยทำงานไปแล้ว
+                            if (plant.HasStarted) plant.StartCoroutine("LoadAllDataFromSupabaseRoutine");
                         }
                     },
                     onError: (err) =>
                     {
                         isUsingItem = false;
                         Debug.LogError($"[MainInventoryManager] 🔴 สร้าง player_plant ล้มเหลว: {err}");
+
+                        // 🔧 ปลูกไม่สำเร็จ -> คืนเมล็ดที่หักไปแล้วให้ผู้เล่น (กันเมล็ดหายฟรี)
+                        StartCoroutine(SupabaseManager.Instance.AddItemToInventory(seedItemId, 1,
+                            onSuccess: () => FetchInventoryAndRender(),
+                            onError: (e2) => Debug.LogError($"[MainInventoryManager] 🔴 คืนเมล็ดไม่สำเร็จ: {e2}")));
                     }
                 ));
             },

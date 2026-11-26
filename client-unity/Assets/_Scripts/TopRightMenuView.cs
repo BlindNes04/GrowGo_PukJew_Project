@@ -41,8 +41,10 @@ public class TopRightMenuView : MonoBehaviour
         }
     }
 
-    public void OnFriendClicked() => Debug.Log("Friend Button Clicked");
-    public void OnSettingClicked() => Debug.Log("Setting Button Clicked");
+    // 🔧 กดเพื่อน/ตั้งค่าแล้วปิดแผง More ด้วย (เดิมแผงค้างอยู่หลังป๊อปอัพ)
+    public void OnFriendClicked() { Debug.Log("Friend Button Clicked"); CloseMoreMenu(); }
+    public void OnSettingClicked() { Debug.Log("Setting Button Clicked"); CloseMoreMenu(); }
+    private void CloseMoreMenu() { if (moreMenuPanel != null) moreMenuPanel.SetActive(false); }
     public void OnEventClicked() => Debug.Log("Event Button Clicked");
     public void OnBiomeClicked() => Debug.Log("Biome Button Clicked");
 

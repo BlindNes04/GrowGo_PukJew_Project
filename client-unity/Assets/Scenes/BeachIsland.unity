@@ -2340,11 +2340,11 @@ MonoBehaviour:
   BeachRewardController: {fileID: 1710144019}
   beachItems:
   - itemId: ITEM_ING_SANDPILE
-    itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22"
+    itemName: "\u0E01\u0E2D\u0E07\u0E17\u0E23\u0E32\u0E22\u0E41\u0E25\u0E30\u0E40\u0E28\u0E29\u0E2B\u0E2D\u0E22"
     itemIcon: {fileID: 21300000, guid: 5d66acf3d6a2ebf48a11480ceafc2ce7, type: 3}
     dropRate: 0.45
   - itemId: ITEM_ING_SEAWEED_POTION
-    itemName: "\u0E19\u0E49\u0E33\u0E22\u0E32\u0E2A\u0E32\u0E2B\u0E23\u0E48\u0E32\u0E22\u0E17\u0E30\u0E40\u0E25"
+    itemName: "\u0E42\u0E1E\u0E0A\u0E31\u0E48\u0E19\u0E2A\u0E32\u0E2B\u0E23\u0E48\u0E32\u0E22\u0E40\u0E23\u0E37\u0E2D\u0E07\u0E41\u0E2A\u0E07"
     itemIcon: {fileID: 21300000, guid: 4e475fe0c38763244a67da661afacae8, type: 3}
     dropRate: 0.3
   - itemId: ITEM_ING_SHRIMP
@@ -2352,7 +2352,7 @@ MonoBehaviour:
     itemIcon: {fileID: 21300000, guid: 98a589a7772031f4194c9805ff6da267, type: 3}
     dropRate: 0.18
   - itemId: ITEM_SEED_COCONUT
-    itemName: "\u0E40\u0E21\u0E25\u0E47\u0E14\u0E21\u0E30\u0E1E\u0E23\u0E49\u0E32\u0E27"
+    itemName: "\u0E2B\u0E19\u0E48\u0E2D\u0E1E\u0E23\u0E49\u0E32\u0E27\u0E01\u0E30\u0E17\u0E34"
     itemIcon: {fileID: 21300000, guid: 5217e9f24fd8743e1b31b484eb8678a9, type: 3}
     dropRate: 0.07
   cooldownSeconds: 900
